@@ -48,15 +48,25 @@ def load_image(name, colorkey=None):
 
 pictures = {
     '#': load_image('стены.png'),
+    '1':load_image('плитка 1.png'),
+    '2': load_image('плитка 2.png'),
+    '3': load_image('плитка 3.png'),
+    '4': load_image('плитка черепки.png'),
+    'Z': load_image('стены с зеленью.png'),
+    'C': load_image('стены с цепями.png'),
     '.': load_image('простая плитка.png'),
-    'K': load_image('ключ белый и жёлтый.png', colorkey=-1),
-    'k': load_image('ключ белый и синий.png', colorkey=-1),
-    'D': load_image('дверь жёлтый.png'),
-    'd': load_image('дверь синий.png'),
+    'y': load_image('ключ белый и жёлтый.png', colorkey=-1),
+    'b': load_image('ключ белый и синий.png', colorkey=-1),
+    'g': load_image('ключ белый и зелёный.png', colorkey=-1),
+    'r': load_image('ключ белый и красный.png', colorkey=-1),
+    'Y': load_image('дверь жёлтый.png'),
+    'B': load_image('дверь синий.png'),
+    'G': load_image('дверь зелёный.png'),
+    'R': load_image('дверь красный.png'),
     'W': load_image('water_.png'),
     'S': load_image('sand.png'),
     '*': load_image('сундук.png'),
-    'P': load_image('rog_run.png', colorkey=-1),
+    'P': load_image('rog_run_.png', colorkey=-1),
     'O': load_image('none_activated_portal.png', colorkey=-1),
     'M': load_image('skeleton_run.png', colorkey=-1)
 }
@@ -102,7 +112,7 @@ class Base(pygame.sprite.Sprite):
 class Player(Base):
     def __init__(self, x, y, color, columns):
         super().__init__(x, y, color, columns=columns)
-
+        self.mask = pygame.mask.from_surface(self.image)
     def move(self, dx, dy):
         pass
 
@@ -122,9 +132,10 @@ class Monster(Base):
         print(self.trajectory)
         self.current_point_index = 0
         self.next_point_index = 1
-        self.speed = 2
+        self.speed = 5
         self.x, self.y = self.trajectory[0]
         super().__init__(self.x, self.y, color, columns=columns)
+        self.mask = pygame.mask.from_surface(self.image)
 
     def load_trajectory(self, filename):
         trajectory = []
@@ -220,26 +231,18 @@ def create_level(level_data, trajectory):
                 continue
             if tile_type != 'M':
                 tile = Base(x, y, pictures[tile_type])
-            if tile_type == '#':
+            if tile_type in '#ZC':
                 wall.add(tile)
             elif tile_type == 'P':
                 p1 = Player(x, y, pictures['P'], columns=6)
                 player.add(p1)
                 floor.add(Base(x, y, pictures['.']))
-            elif tile_type == 'K':
-                tile.indicator = 1
+            elif tile_type in 'rbgy':
+                tile.indicator = 'rbgy'.index(tile_type)
                 keys.add(tile)
                 floor.add(Base(x, y, pictures['.']))
-            elif tile_type == 'k':
-                tile.indicator = 2
-                keys.add(tile)
-                floor.add(Base(x, y, pictures['.']))
-            elif tile_type == 'D':
-                tile.indicator = 1
-                doors.add(tile)
-                floor.add(Base(x, y, pictures['.']))
-            elif tile_type == 'd':
-                tile.indicator = 2
+            elif tile_type in 'RBGY':
+                tile.indicator = 'RBGY'.index(tile_type)
                 doors.add(tile)
                 floor.add(Base(x, y, pictures['.']))
             elif tile_type == '*':
@@ -258,7 +261,7 @@ def create_level(level_data, trajectory):
                 monster = Monster(pictures['M'], trajectory, columns=6)
                 monsters.add(monster)
                 floor.add(Base(x, y, pictures['.']))
-            elif tile_type == '.':
+            elif tile_type in '.1234':
                 floor.add(tile)
     return wall, floor, player, p1, keys, doors, chips, water, sand, portal, monsters
 
@@ -426,7 +429,7 @@ class Board:
 
     def check_monster_collision(self, monsters):
         for monster in monsters:
-            if self.p1.rect.colliderect(monster.rect):
+            if pygame.sprite.collide_mask(self.p1, monster):
                 return True
         return False
 
@@ -696,7 +699,7 @@ class Pause_button(Button):
 
 def main():
     level = 1
-    chips_left = 1
+    chips_left = 5
     time_left = 100
     clock = pygame.time.Clock()
 
