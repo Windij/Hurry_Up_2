@@ -3,8 +3,12 @@ import pygame
 import os
 import time
 import math
+import sqlite3
 
 pygame.init()
+conn = sqlite3.connect('gamer.db')
+cursor = conn.cursor()
+
 
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 850
@@ -13,7 +17,7 @@ BOARD_HEIGHT = 9
 TILE_SIZE = 60
 BROWN = (123, 63, 0)
 RED = (255, 0, 0)
-GREEN = (0, 255, 0)
+GREEN = (21,71,52)
 BLACK = (0, 0, 0)
 GRAY = (200, 200, 200)
 GOLD = (255, 215, 0)
@@ -23,7 +27,7 @@ LIGHT_YELLOW = (255, 255, 150)
 WHITE = (255, 255, 255)
 GRID_LINE_COLOR = BLACK
 LEVEL_FILE = 'level.txt'
-RECORD_FILE = 'record.txt'
+LEVEL2_FILE = "level2.txt"
 TRAJECTORY_FILE = 'trajectory.txt'
 size = SCREEN_WIDTH, SCREEN_HEIGHT
 screen = pygame.display.set_mode(size)
@@ -417,9 +421,9 @@ class Board:
     def check_portal_collision(self, chips_left, time_left, screen, inventory):
         if self.p1.is_collide(self.portal) and chips_left == 0:
             total_score = 1000 + time_left * 10
-            record = load_record()
+            record = self.load_record()  # Call using self
             improvement = total_score - record if record != 0 else "——"
-            save_record(max(total_score, record))
+            self.save_record(time_left, total_score) # Call using self, passing in values
             inventory.items = []
             return True
         return False
@@ -431,17 +435,39 @@ class Board:
         return False
 
 
-def load_record():
-    try:
-        with open(RECORD_FILE, 'r') as f:
-            return int(f.read())
-    except FileNotFoundError:
-        return 0
+    def load_record(self):
+        try:
+            sqlite_connection = sqlite3.connect('gamer.db')
+            cursor = sqlite_connection.cursor()  # Establish cursor
+            cursor.execute("SELECT MAX(score) FROM gamer WHERE level_name=1")  # Select highest score for level 1
+            record = cursor.fetchone()[0]
+            sqlite_connection.close()
+            return record if record is not None else 0
+        except sqlite3.Error as error:
+            print(f"Error loading record: {error}")
+            return 0
 
 
-def save_record(record):
-    with open(RECORD_FILE, 'w') as f:
-        f.write(str(record))
+    def save_record(self, time_left, total_score):
+      try:
+        sqlite_connection = sqlite3.connect('gamer.db')
+        cursor = sqlite_connection.cursor()
+
+        # Check if a record with level_name = 1 exists
+        cursor.execute("SELECT id FROM gamer WHERE level_name=1")
+        existing_record = cursor.fetchone()
+
+        if existing_record:
+        # Update the existing record
+             cursor.execute('UPDATE gamer SET time = ?, score = ? WHERE level_name = 1', (time_left, total_score))
+        # else:
+        # # Insert a new record
+        #      cursor.execute('INSERT INTO gamer (time, score, level_name) VALUES (?, ?, ?)', (time_left, total_score, 1))
+        sqlite_connection.commit()
+        sqlite_connection.close()
+      except sqlite3.Error as error:
+            print(f"Error saving record: {error}")
+            return 0
 
 
 class Inventory(Board):
@@ -780,17 +806,17 @@ def main():
 
             screen.fill(BLACK)
 
-            draw_text(screen, "TIME:", 700, 760 - font_size, YELLOW)
-            draw_clock_face(screen, 790, 710, 70, 40, BLUE)
-            draw_digit(screen, time_left, 794, 720, LIGHT_YELLOW)
+            draw_text(screen, "TIME:", 700, 740 - font_size, YELLOW)
+            draw_clock_face(screen, 790, 690, 70, 40, GREEN)
+            draw_digit(screen, time_left, 794, 700, LIGHT_YELLOW)
 
             draw_text(screen, "LEVEL:", 90, 780, YELLOW)
-            draw_clock_face(screen, 275, 775, 70, 40, BLUE)
+            draw_clock_face(screen, 275, 775, 70, 40, GREEN)
             draw_digit(screen, level, 282, 782, LIGHT_YELLOW)
 
-            draw_text(screen, "STARS LEFT:", 90, 760 - font_size, YELLOW)
-            draw_clock_face(screen, 275, 710, 70, 40, BLUE)
-            draw_digit(screen, chips_left, 280, 720, LIGHT_YELLOW)
+            draw_text(screen, "STARS LEFT:", 90, 740 - font_size, YELLOW)
+            draw_clock_face(screen, 275, 690, 70, 40, GREEN)
+            draw_digit(screen, chips_left, 280, 700, LIGHT_YELLOW)
             pause_button.draw(screen)
             board.draw_level(screen)
             inventory.render(screen)
