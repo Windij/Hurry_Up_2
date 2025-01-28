@@ -829,11 +829,12 @@ def main():
                 time_for_animation = current_time + 0.1
                 board.water.update()
             if game_over:
-                draw_text(screen, "GAME OVER!",
-                          SCREEN_WIDTH // 2 - 120, SCREEN_HEIGHT // 2 - 50, RED)
-                draw_text(screen, "Press Enter to restart", SCREEN_WIDTH // 2 - 150,
-                          SCREEN_HEIGHT // 2, RED)
+                die_image = load_image("die_window_.png")  # Assuming image file is called "character.png"
+                die_rect = die_image.get_rect()
+                die_rect.topleft = (325, 107)
                 inventory.items = []
+                screen.blit(die_image, die_rect)
+
             clock.tick(30)
             pygame.display.flip()
 
