@@ -280,6 +280,9 @@ class Board:
         self.cell_size = TILE_SIZE
         self.screen_2 = pygame.Surface((self.width * self.cell_size,
                                         self.height * self.cell_size))
+        self.image_normal = load_image('pause_.png', colorkey=-1)
+        self.image_pressed = load_image('pressed_pause_.png', colorkey=-1)
+
 
     def set_view(self, left, top, cell_size):
         self.left = left
@@ -670,6 +673,119 @@ class StartWindow:
             pygame.display.flip()
 
 
+class DataBase:
+    def __init__(self):
+        self.conn = sqlite3.connect('gamer.db')
+        self.cursor = self.conn.cursor()
+
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS gamer (
+                id INTEGER PRIMARY KEY,
+                level_name INTEGER,
+                score INTEGER,
+                time INTEGER
+            )
+        ''')
+        self.conn.commit()
+
+        self.cursor.execute("SELECT COUNT(*) FROM gamer")
+        count = self.cursor.fetchone()[0]
+        if count == 0:
+            initial_data = [
+                (1, 1, None, None),
+                (2, 2, None, None),
+                (3, 3, None, None)]
+            self.cursor.executemany("INSERT INTO gamer VALUES (?, ?, ?, ?)", initial_data)
+            self.conn.commit()
+
+
+    def draw_text(self, text, font, color, x, y, align="left"):
+        text_surface = font.render(text, True, color)
+        text_rect = text_surface.get_rect()
+        if align == "left":
+            text_rect.topleft = (x, y)
+        elif align == "center":
+            text_rect.center = (x, y)
+        elif align == "right":
+            text_rect.topright = (x, y)
+        screen.blit(text_surface, text_rect)
+        return text_rect
+
+    def draw_table(self):
+        header_y = 40
+        row_height = 30
+        column_spacing = 150
+        level_x = 50
+        score_x = level_x + column_spacing
+        time_x = score_x + column_spacing
+
+        pygame.draw.line(screen, BLACK, (level_x - 10, header_y + 20), (time_x + 100, header_y + 20), 1)
+        self.draw_text("Level", font1, BLACK, level_x, header_y)
+        self.draw_text("Score", font1, BLACK, score_x + 40, header_y + 6, align="center")
+        self.draw_text("Time", font1, BLACK, time_x + 20, header_y + 6, align="center")
+
+        # Draw the "Clear Table" button
+        clear_button_rect = pygame.draw.rect(screen, GRAY, (250, 190, 200, 50), 0)
+        self.draw_text("CLEAR TABLE", font1, WHITE, 295, 208)
+
+        self.cursor.execute("SELECT level_name, score, time FROM gamer")
+        scores = self.cursor.fetchall()
+
+        y_pos = header_y + row_height
+        lesson_rects = {}
+        for lesson_number, score, time in scores:
+            pygame.draw.line(screen, GRAY, (level_x - 10, y_pos + 20), (time_x + 100, y_pos + 20), 1)
+            level_text = f"{lesson_number}    LESSON {lesson_number}"
+            lesson_rects[lesson_number] = self.draw_text(level_text, font1, BLACK, level_x, y_pos)
+            score_text = str(score) if score is not None else "---"
+            self.draw_text(score_text, font1, BLACK, score_x + 40, y_pos + 6, align="center")
+            time_text = str(time) if time is not None else "---"
+            self.draw_text(time_text, font1, BLACK, time_x + 20, y_pos + 6, align="center")
+            y_pos += row_height
+
+        pygame.draw.line(screen, BLACK, (level_x - 10, y_pos + 20), (time_x + 100, y_pos + 20), 1)
+        self.draw_text("LEVEL SET TOTAL", font1, BLACK, level_x, y_pos)
+        self.cursor.execute("SELECT sum(score) FROM gamer WHERE score IS NOT NULL")
+        total = self.cursor.fetchone()[0]
+        if total is None:
+            total = 0
+        self.draw_text(str(total), font1, BLACK, score_x + 40, y_pos + 6, align="center")
+        return lesson_rects, clear_button_rect
+
+    def handle_click(self, lesson_rects, mouse_pos, clear_button_rect):
+        for lesson_number, rect in lesson_rects.items():
+            if rect.collidepoint(mouse_pos):
+                self.run_level(lesson_number)
+                return
+        if clear_button_rect.collidepoint(mouse_pos):
+            self.clear_scores()
+
+
+
+    def run_level(self, level_number):
+        level_running = True
+        while level_running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    level_running = False
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        level_running = False
+
+            screen.fill(WHITE)
+            pygame.display.flip()
+
+    def clear_scores(self):
+        self.cursor.execute("UPDATE gamer SET score = NULL, time = NULL")
+        self.conn.commit()
+
+    def __del__(self):
+        self.conn.close()
+
+
+
 font_size = 40
 
 font1 = pygame.font.Font(None, font_size)
@@ -708,6 +824,27 @@ def draw_clock_face(screen, x, y, width, height, color):
     pygame.draw.rect(screen, color, (x, y, width, height))
 
 
+class Music_button(pygame.sprite.Sprite):
+    def __init__(self, image_normal, image_pressed, center):
+        super().__init__()
+        self.image_normal = image_normal
+        self.image_pressed = image_pressed
+        self.image = self.image_normal
+        self.rect = self.image.get_rect(center=center)
+        self.is_pressed = False
+
+    def update(self, mouse_pos, mouse_click):
+        if self.rect.collidepoint(mouse_pos):
+            if mouse_click:
+               self.is_pressed = not self.is_pressed
+               if self.is_pressed:
+                   self.image = self.image_pressed
+               else:
+                   self.image = self.image_normal
+
+    def draw(self, surface):
+        surface.blit(self.image, self.rect)
+
 class Pause_button(Button):
     def __init__(self, text, x, y, width, height, color, hover_color, nonpress_image=None
                  , press_image=None):
@@ -722,6 +859,7 @@ class Pause_button(Button):
     def draw(self, screen):
         screen.blit(self.image, self.rect)
 
+pygame.mixer.init()
 
 def main():
     level = 1
@@ -738,6 +876,12 @@ def main():
     level_complete = False
     trajectory = 'trajectory.txt'
     time_for_animation = time.time()
+    image_normal = load_image('music_but.png', colorkey=-1)
+    image_pressed = load_image('pressed_music_but.png', colorkey=-1)
+    button_center = (50, 50)
+    music_button = Music_button(image_normal, image_pressed, button_center)
+    all_sprites = pygame.sprite.Group(music_button)
+    pygame.mixer.music.load("music.mp3")
 
     if not start_window.running:
         board = Board(BOARD_WIDTH, BOARD_HEIGHT)
@@ -751,6 +895,9 @@ def main():
                                     GRAY, BLUE, nonpress_image=load_image('pause_.png', colorkey=-1),
                                     press_image=load_image('pressed_pause_.png', colorkey=-1))
 
+        music_button = Music_button(image_normal, image_pressed, button_center)
+
+        is_music_playing = False
         running = True
         while running:
             for event in pygame.event.get():
@@ -760,6 +907,36 @@ def main():
                 if pause_button.rect.collidepoint(mouse_pos) and pygame.mouse.get_pressed()[0]:
                     is_paused = not is_paused
                     pause_button.pause(is_paused)
+                mouse_pos = pygame.mouse.get_pos()
+                mouse_click = False
+
+                if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                    mouse_click = True
+                    music_button.update(mouse_pos, mouse_click)
+
+                if mouse_click and music_button.is_pressed:
+                    if is_music_playing:
+                        pygame.mixer.music.pause()
+                        is_music_playing = False
+
+                    else:
+                        pygame.mixer.music.unpause()
+                        is_music_playing = True
+
+                elif mouse_click and not music_button.is_pressed and not is_music_playing:
+                    pygame.mixer.music.play(-1)  # Loop the music indefinetly
+                    is_music_playing = True
+                # if event.type == pygame.KEYDOWN:
+                #     if event.key == pygame.K_SPACE:
+                #         is_paused = not is_paused
+                #         if is_paused:
+                #             pygame.mixer.music.pause()
+                #         else:
+                #             pygame.mixer.music.unpause()
+                #             music_button.pause(is_paused)
+                # # if music_button.rect.collidepoint(mouse_pos) and pygame.mouse.get_pressed()[0]:
+                # #     is_paused = not is_paused
+                # #     music_button.pause(is_paused)
                 if event.type == pygame.KEYDOWN and not is_paused and not game_over and not level_complete:
                     dx = 0
                     dy = 0
@@ -783,13 +960,13 @@ def main():
                     if event.key == pygame.K_RETURN:
                         game_over = False
                         board.load_level(LEVEL_FILE, trajectory)
-                        chips_left = 1
+                        chips_left = 5
                         time_left = 100
                 if event.type == pygame.KEYDOWN and level_complete:
                     if event.key == pygame.K_RETURN:
                         level_complete = False
                         board.load_level(LEVEL_FILE, trajectory)
-                        chips_left = 1
+                        chips_left = 5
                         time_left = 100
 
             if not is_paused and chips_left > 0 and not game_over and not level_complete:
@@ -836,6 +1013,7 @@ def main():
                 screen.blit(die_image, die_rect)
 
             clock.tick(30)
+            all_sprites.draw(screen)
             pygame.display.flip()
 
     pygame.quit()
