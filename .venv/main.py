@@ -9,7 +9,6 @@ pygame.init()
 conn = sqlite3.connect('gamer.db')
 cursor = conn.cursor()
 
-
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 850
 BOARD_WIDTH = 9
@@ -17,7 +16,7 @@ BOARD_HEIGHT = 9
 TILE_SIZE = 60
 BROWN = (123, 63, 0)
 RED = (255, 0, 0)
-GREEN = (21,71,52)
+GREEN = (21, 71, 52)
 BLACK = (0, 0, 0)
 GRAY = (200, 200, 200)
 GOLD = (255, 215, 0)
@@ -26,9 +25,10 @@ BLUE = (0, 0, 255)
 LIGHT_YELLOW = (255, 255, 150)
 WHITE = (255, 255, 255)
 GRID_LINE_COLOR = BLACK
-LEVEL_FILE = 'level.txt'
+LEVEL1_FILE = 'level1.txt'
 LEVEL2_FILE = "level2.txt"
-TRAJECTORY_FILE = 'trajectory.txt'
+TRAJECTORY1_FILE = 'trajectory1.txt'
+TRAJECTORY2_FILE = 'trajectory2.txt'
 size = SCREEN_WIDTH, SCREEN_HEIGHT
 screen = pygame.display.set_mode(size)
 pygame.display.set_caption('Level Mover')
@@ -52,7 +52,7 @@ def load_image(name, colorkey=None):
 
 pictures = {
     '#': load_image('стены.png'),
-    '1':load_image('плитка 1.png'),
+    '1': load_image('плитка 1.png'),
     '2': load_image('плитка 2.png'),
     '3': load_image('плитка 3.png'),
     '4': load_image('плитка черепки.png'),
@@ -117,6 +117,7 @@ class Player(Base):
     def __init__(self, x, y, color, columns):
         super().__init__(x, y, color, columns=columns)
         self.mask = pygame.mask.from_surface(self.image)
+
     def move(self, dx, dy):
         pass
 
@@ -377,7 +378,9 @@ class Board:
                             self.water.remove(water)
                             break
                     self.sand.remove(tile)
-
+                if any(pygame.sprite.collide_mask(block, tile) for block in self.sand if tile != block):
+                    tile.move(dx, dy)
+                    flag = True
         for tile in self.keys:
             tile.move(dx, dy)
             if self.p1.rect.colliderect(tile.rect):
@@ -426,7 +429,7 @@ class Board:
             total_score = 1000 + time_left * 10
             record = self.load_record()  # Call using self
             improvement = total_score - record if record != 0 else "——"
-            self.save_record(time_left, total_score) # Call using self, passing in values
+            self.save_record(time_left, total_score)  # Call using self, passing in values
             inventory.items = []
             return True
         return False
@@ -436,7 +439,6 @@ class Board:
             if pygame.sprite.collide_mask(self.p1, monster):
                 return True
         return False
-
 
     def load_record(self):
         try:
@@ -450,25 +452,24 @@ class Board:
             print(f"Error loading record: {error}")
             return 0
 
-
     def save_record(self, time_left, total_score):
-      try:
-        sqlite_connection = sqlite3.connect('gamer.db')
-        cursor = sqlite_connection.cursor()
+        try:
+            sqlite_connection = sqlite3.connect('gamer.db')
+            cursor = sqlite_connection.cursor()
 
-        # Check if a record with level_name = 1 exists
-        cursor.execute("SELECT id FROM gamer WHERE level_name=1")
-        existing_record = cursor.fetchone()
+            # Check if a record with level_name = 1 exists
+            cursor.execute("SELECT id FROM gamer WHERE level_name=1")
+            existing_record = cursor.fetchone()
 
-        if existing_record:
-        # Update the existing record
-             cursor.execute('UPDATE gamer SET time = ?, score = ? WHERE level_name = 1', (time_left, total_score))
-        # else:
-        # # Insert a new record
-        #      cursor.execute('INSERT INTO gamer (time, score, level_name) VALUES (?, ?, ?)', (time_left, total_score, 1))
-        sqlite_connection.commit()
-        sqlite_connection.close()
-      except sqlite3.Error as error:
+            if existing_record:
+                # Update the existing record
+                cursor.execute('UPDATE gamer SET time = ?, score = ? WHERE level_name = 1', (time_left, total_score))
+            # else:
+            # # Insert a new record
+            #      cursor.execute('INSERT INTO gamer (time, score, level_name) VALUES (?, ?, ?)', (time_left, total_score, 1))
+            sqlite_connection.commit()
+            sqlite_connection.close()
+        except sqlite3.Error as error:
             print(f"Error saving record: {error}")
             return 0
 
@@ -553,7 +554,8 @@ class PopupWindow:
         self.rect = pygame.Rect(SCREEN_WIDTH // 2 - width // 2, SCREEN_HEIGHT // 2 - height // 2, width, height)
         self.running = True
         self.close_button = Button('', self.rect.x + self.width - 140, self.rect.y + self.height, 120, 30,
-                                   RED, (200, 0, 0), self.close, nonpress_image=close_image,press_image= pressed_close_image)
+                                   RED, (200, 0, 0), self.close, nonpress_image=close_image,
+                                   press_image=pressed_close_image)
         self.background_image = background_image
         self.line_spacing = 5
         self.text_surfaces = self.render_text()
@@ -608,8 +610,8 @@ class StartWindow:
 
         self.beton_image = pygame.transform.scale(load_image('wallpaper_.png', colorkey=-1), (450, 300))
 
-        self.exit = load_image('exit_.png',colorkey=-1)
-        self.pressed_exit = load_image('pressed_exit_.png',colorkey=-1)
+        self.exit = load_image('exit_.png', colorkey=-1)
+        self.pressed_exit = load_image('pressed_exit_.png', colorkey=-1)
 
         self.start_game_table_rect = None
         self.create_buttons()
@@ -736,12 +738,12 @@ def main():
     last_time = 0
     game_over = False
     level_complete = False
-    trajectory = 'trajectory.txt'
+    trajectory = TRAJECTORY1_FILE
     time_for_animation = time.time()
 
     if not start_window.running:
         board = Board(BOARD_WIDTH, BOARD_HEIGHT)
-        board.load_level(LEVEL_FILE, trajectory)
+        board.load_level(LEVEL1_FILE, trajectory)
 
         inventory = Inventory(7, 1)
         inventory.set_view(board.left + TILE_SIZE,
@@ -782,13 +784,13 @@ def main():
                 if event.type == pygame.KEYDOWN and game_over:
                     if event.key == pygame.K_RETURN:
                         game_over = False
-                        board.load_level(LEVEL_FILE, trajectory)
+                        board.load_level(LEVEL1_FILE, trajectory)
                         chips_left = 1
                         time_left = 100
                 if event.type == pygame.KEYDOWN and level_complete:
                     if event.key == pygame.K_RETURN:
                         level_complete = False
-                        board.load_level(LEVEL_FILE, trajectory)
+                        board.load_level(LEVEL1_FILE, trajectory)
                         chips_left = 1
                         time_left = 100
 
