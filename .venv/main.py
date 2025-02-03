@@ -643,14 +643,18 @@ class StartWindow:
 
     def show_about(self):
         self.popup_window = PopupWindow(self.screen,
-                                        "\n\n\n\nЗдесь \n информация \n об \n правилах \n игры",
+                                        '\n\n\nУправляйте персонажем с помощью WASD.'
+                                        '\n\nИзбегайте опасностей.\n\nСледи за временем.'
+                                        '\n\nСобирайте сундуки.',
                                         450, 300,
                                         self.beton_image, self.exit, self.pressed_exit)
         self.popup_window.run()
         self.popup_window = None
 
     def show_authors(self):
-        self.popup_window = PopupWindow(self.screen, "\n\n\n\nЗдесь \n информация \n об \n авторах", 450, 300,
+        self.popup_window = PopupWindow(self.screen,
+                                        '\n\n\n\n\nНад проектом работали:\nСпивак Максим Игоревич - @Maxusmini\n'
+                                        'Кривова Полина Дмитриевна - @polly_kriv\n2024-2025\n', 450, 300,
                                         self.beton_image, self.exit, self.pressed_exit)
         self.popup_window.run()
         self.popup_window = None
