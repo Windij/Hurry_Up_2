@@ -26,9 +26,10 @@ BLUE = (0, 0, 255)
 LIGHT_YELLOW = (255, 255, 150)
 WHITE = (255, 255, 255)
 GRID_LINE_COLOR = BLACK
-LEVEL_FILE = 'level.txt'
+LEVEL1_FILE = 'level.txt'
 LEVEL2_FILE = "level2.txt"
-TRAJECTORY_FILE = 'trajectory.txt'
+TRAJECTORY_FILE = 'trajectory1.txt'
+TRAJECTORY2_FILE = 'trajectory2.txt'
 size = SCREEN_WIDTH, SCREEN_HEIGHT
 screen = pygame.display.set_mode(size)
 pygame.display.set_caption('Level Mover')
@@ -431,6 +432,7 @@ class Board:
             improvement = total_score - record if record != 0 else "——"
             self.save_record(time_left, total_score) # Call using self, passing in values
             inventory.items = []
+            level2 = self.show_level2()
             return True
         return False
 
@@ -836,11 +838,14 @@ class Music_button(pygame.sprite.Sprite):
     def update(self, mouse_pos, mouse_click):
         if self.rect.collidepoint(mouse_pos):
             if mouse_click:
-               self.is_pressed = not self.is_pressed
-               if self.is_pressed:
-                   self.image = self.image_pressed
-               else:
-                   self.image = self.image_normal
+                self.is_pressed = not self.is_pressed
+                if self.is_pressed:
+                    self.image = self.image_pressed
+                else:
+                    self.image = self.image_normal
+
+    def draw(self, surface):
+        surface.blit(self.image, self.rect)
 
     def draw(self, surface):
         surface.blit(self.image, self.rect)
@@ -861,7 +866,7 @@ class Pause_button(Button):
 
 pygame.mixer.init()
 
-def main():
+def show_level1():
     level = 1
     chips_left = 5
     time_left = 100
@@ -874,7 +879,8 @@ def main():
     last_time = 0
     game_over = False
     level_complete = False
-    trajectory = 'trajectory.txt'
+    trajectory = 'trajectory1.txt'
+    current_level = 1
     time_for_animation = time.time()
     image_normal = load_image('music_but.png', colorkey=-1)
     image_pressed = load_image('pressed_music_but.png', colorkey=-1)
@@ -885,7 +891,7 @@ def main():
 
     if not start_window.running:
         board = Board(BOARD_WIDTH, BOARD_HEIGHT)
-        board.load_level(LEVEL_FILE, trajectory)
+        board.load_level(LEVEL1_FILE, trajectory)
 
         inventory = Inventory(7, 1)
         inventory.set_view(board.left + TILE_SIZE,
@@ -894,10 +900,13 @@ def main():
         pause_button = Pause_button('', PAUSE_BUTTON_X, PAUSE_BUTTON_Y, PAUSE_BUTTON_WIDTH, PAUSE_BUTTON_HEIGHT,
                                     GRAY, BLUE, nonpress_image=load_image('pause_.png', colorkey=-1),
                                     press_image=load_image('pressed_pause_.png', colorkey=-1))
-
+        image_normal = load_image('music_but.png', colorkey=-1)
+        image_pressed = load_image('pressed_music_but.png', colorkey=-1)
+        level_image = load_image('level_but.png', colorkey=-1)
         music_button = Music_button(image_normal, image_pressed, button_center)
 
         is_music_playing = False
+        is_paused = False
         running = True
         while running:
             for event in pygame.event.get():
@@ -924,19 +933,9 @@ def main():
                         is_music_playing = True
 
                 elif mouse_click and not music_button.is_pressed and not is_music_playing:
-                    pygame.mixer.music.play(-1)  # Loop the music indefinetly
+                    pygame.mixer.music.play(-1)  # Loop the music indefinitely
                     is_music_playing = True
-                # if event.type == pygame.KEYDOWN:
-                #     if event.key == pygame.K_SPACE:
-                #         is_paused = not is_paused
-                #         if is_paused:
-                #             pygame.mixer.music.pause()
-                #         else:
-                #             pygame.mixer.music.unpause()
-                #             music_button.pause(is_paused)
-                # # if music_button.rect.collidepoint(mouse_pos) and pygame.mouse.get_pressed()[0]:
-                # #     is_paused = not is_paused
-                # #     music_button.pause(is_paused)
+
                 if event.type == pygame.KEYDOWN and not is_paused and not game_over and not level_complete:
                     dx = 0
                     dy = 0
@@ -952,6 +951,19 @@ def main():
                     if chips_left == 0:
                         for tile in board.portal:
                             tile.image = load_image('activated_portal.png', colorkey=-1)
+                            if event.type == pygame.KEYDOWN and game_over:
+                                if event.key == pygame.K_RETURN:
+                                    game_over = False
+                                    board.load_level(LEVEL2_FILE, trajectory)
+                                    chips_left = 6
+                                    time_left = 100
+                            if event.type == pygame.KEYDOWN and level_complete:
+                                if event.key == pygame.K_RETURN:
+                                    level_complete = False
+                                    board.load_level(LEVEL2_FILE, trajectory)
+                                    chips_left = 6
+                                    time_left = 100
+                                    trajectory = TRAJECTORY2_FILE
                     if board.p1.is_collide(board.water):
                         game_over = True
                     level_complete = board.check_portal_collision(chips_left, time_left, screen, inventory)
@@ -959,15 +971,26 @@ def main():
                 if event.type == pygame.KEYDOWN and game_over:
                     if event.key == pygame.K_RETURN:
                         game_over = False
-                        board.load_level(LEVEL_FILE, trajectory)
-                        chips_left = 5
+                        board.load_level(LEVEL1_FILE, trajectory)
+                        chips_left = 6
                         time_left = 100
                 if event.type == pygame.KEYDOWN and level_complete:
                     if event.key == pygame.K_RETURN:
                         level_complete = False
-                        board.load_level(LEVEL_FILE, trajectory)
-                        chips_left = 5
+                        board.load_level(LEVEL1_FILE, trajectory)
+                        chips_left = 6
                         time_left = 100
+                        trajectory = TRAJECTORY_FILE
+
+            if level_complete:
+                current_level += 1
+                chips_left = 1  # Reset chips for new level
+                level_complete = False
+                if current_level > 2:  # Only two levels
+                    game_over = True
+                else:
+                    level_data = load_level(f"level{current_level}.txt")
+                    board.load_level(level_data, trajectory)
 
             if not is_paused and chips_left > 0 and not game_over and not level_complete:
                 current_time = time.time()
@@ -983,7 +1006,6 @@ def main():
                 board.move_monsters()
                 if board.check_monster_collision(board.monsters):
                     game_over = True
-
             screen.fill(BLACK)
 
             draw_text(screen, "TIME:", 700, 740 - font_size, YELLOW)
@@ -1011,13 +1033,204 @@ def main():
                 die_rect.topleft = (325, 107)
                 inventory.items = []
                 screen.blit(die_image, die_rect)
+                for event in pygame.event.get():  # Wait for enter to restart
+                    if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
+                        game_over = False
+                        current_level = 1
+                        chips_left = 1
+                        level_data = load_level(f"level{current_level}.txt")
+                        board.load_level(level_data, trajectory)
+                        break
 
             clock.tick(30)
             all_sprites.draw(screen)
             pygame.display.flip()
 
-    pygame.quit()
+def show_level2():
+    level = 1
+    chips_left = 5
+    time_left = 100
+    clock = pygame.time.Clock()
 
+    start_window = StartWindow(screen)
+    start_window.run()
+
+    is_paused = False
+    last_time = 0
+    game_over = False
+    level_complete = False
+    trajectory = 'trajectory2.txt'
+    current_level = 2
+    time_for_animation = time.time()
+    image_normal = load_image('music_but.png', colorkey=-1)
+    image_pressed = load_image('pressed_music_but.png', colorkey=-1)
+    button_center = (50, 50)
+    music_button = Music_button(image_normal, image_pressed, button_center)
+    all_sprites = pygame.sprite.Group(music_button)
+    pygame.mixer.music.load("music.mp3")
+
+    if not start_window.running:
+        board = Board(BOARD_WIDTH, BOARD_HEIGHT)
+        board.load_level(LEVEL1_FILE, trajectory)
+
+        inventory = Inventory(7, 1)
+        inventory.set_view(board.left + TILE_SIZE,
+                           board.top + board.cell_size * board.height + TILE_SIZE, TILE_SIZE)
+
+        pause_button = Pause_button('', PAUSE_BUTTON_X, PAUSE_BUTTON_Y, PAUSE_BUTTON_WIDTH, PAUSE_BUTTON_HEIGHT,
+                                    GRAY, BLUE, nonpress_image=load_image('pause_.png', colorkey=-1),
+                                    press_image=load_image('pressed_pause_.png', colorkey=-1))
+        image_normal = load_image('music_but.png', colorkey=-1)
+        image_pressed = load_image('pressed_music_but.png', colorkey=-1)
+        level_image = load_image('level_but.png', colorkey=-1)
+        music_button = Music_button(image_normal, image_pressed, button_center)
+
+        is_music_playing = False
+        is_paused = False
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                mouse_pos = pygame.mouse.get_pos()
+                if pause_button.rect.collidepoint(mouse_pos) and pygame.mouse.get_pressed()[0]:
+                    is_paused = not is_paused
+                    pause_button.pause(is_paused)
+                mouse_pos = pygame.mouse.get_pos()
+                mouse_click = False
+
+                if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                    mouse_click = True
+                    music_button.update(mouse_pos, mouse_click)
+
+                if mouse_click and music_button.is_pressed:
+                    if is_music_playing:
+                        pygame.mixer.music.pause()
+                        is_music_playing = False
+
+                    else:
+                        pygame.mixer.music.unpause()
+                        is_music_playing = True
+
+                elif mouse_click and not music_button.is_pressed and not is_music_playing:
+                    pygame.mixer.music.play(-1)  # Loop the music indefinitely
+                    is_music_playing = True
+
+                if event.type == pygame.KEYDOWN and not is_paused and not game_over and not level_complete:
+                    dx = 0
+                    dy = 0
+                    if event.key == pygame.K_d:
+                        dx = -1
+                    if event.key == pygame.K_s:
+                        dy = -1
+                    if event.key == pygame.K_w:
+                        dy = 1
+                    if event.key == pygame.K_a:
+                        dx = 1
+                    chips_left = board.move_level(dx, dy, inventory, chips_left)
+                    if chips_left == 0:
+                        for tile in board.portal:
+                            tile.image = load_image('activated_portal.png', colorkey=-1)
+                            if event.type == pygame.KEYDOWN and game_over:
+                                if event.key == pygame.K_RETURN:
+                                    game_over = False
+                                    board.load_level(LEVEL2_FILE, trajectory)
+                                    chips_left = 6
+                                    time_left = 100
+                            if event.type == pygame.KEYDOWN and level_complete:
+                                if event.key == pygame.K_RETURN:
+                                    level_complete = False
+                                    board.load_level(LEVEL2_FILE, trajectory)
+                                    chips_left = 6
+                                    time_left = 100
+                                    trajectory = TRAJECTORY2_FILE
+                    if board.p1.is_collide(board.water):
+                        game_over = True
+                    level_complete = board.check_portal_collision(chips_left, time_left, screen, inventory)
+
+                if event.type == pygame.KEYDOWN and game_over:
+                    if event.key == pygame.K_RETURN:
+                        game_over = False
+                        board.load_level(LEVEL1_FILE, trajectory)
+                        chips_left = 6
+                        time_left = 100
+                if event.type == pygame.KEYDOWN and level_complete:
+                    if event.key == pygame.K_RETURN:
+                        level_complete = False
+                        board.load_level(LEVEL1_FILE, trajectory)
+                        chips_left = 6
+                        time_left = 100
+                        trajectory = TRAJECTORY_FILE
+
+            if level_complete:
+                current_level += 1
+                chips_left = 1  # Reset chips for new level
+                level_complete = False
+                if current_level > 2:  # Only two levels
+                    game_over = True
+                else:
+                    level_data = load_level(f"level{current_level}.txt")
+                    board.load_level(level_data, trajectory)
+
+            if not is_paused and chips_left > 0 and not game_over and not level_complete:
+                current_time = time.time()
+                if last_time == 0:
+                    last_time = current_time
+                if current_time - last_time >= 1:
+                    time_left -= 1
+                    last_time = current_time
+                if time_left <= 0:
+                    game_over = True
+
+            if not is_paused and not game_over and not level_complete:
+                board.move_monsters()
+                if board.check_monster_collision(board.monsters):
+                    game_over = True
+            screen.fill(BLACK)
+
+            draw_text(screen, "TIME:", 700, 740 - font_size, YELLOW)
+            draw_clock_face(screen, 790, 690, 70, 40, GREEN)
+            draw_digit(screen, time_left, 794, 700, LIGHT_YELLOW)
+
+            draw_text(screen, "LEVEL:", 90, 780, YELLOW)
+            draw_clock_face(screen, 275, 775, 70, 40, GREEN)
+            draw_digit(screen, level, 282, 782, LIGHT_YELLOW)
+
+            draw_text(screen, "STARS LEFT:", 90, 740 - font_size, YELLOW)
+            draw_clock_face(screen, 275, 690, 70, 40, GREEN)
+            draw_digit(screen, chips_left, 280, 700, LIGHT_YELLOW)
+            pause_button.draw(screen)
+            board.draw_level(screen)
+            inventory.render(screen)
+            if time_for_animation < current_time:
+                board.player.update()
+                board.monsters.update()
+                time_for_animation = current_time + 0.1
+                board.water.update()
+            if game_over:
+                die_image = load_image("die_window_.png")  # Assuming image file is called "character.png"
+                die_rect = die_image.get_rect()
+                die_rect.topleft = (325, 107)
+                inventory.items = []
+                screen.blit(die_image, die_rect)
+                for event in pygame.event.get():  # Wait for enter to restart
+                    if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
+                        game_over = False
+                        current_level = 1
+                        chips_left = 1
+                        level_data = load_level(f"level{current_level}.txt")
+                        board.load_level(level_data, trajectory)
+                        break
+
+            clock.tick(30)
+            all_sprites.draw(screen)
+            pygame.display.flip()
+
+pygame.quit()
 
 if __name__ == '__main__':
-    main()
+    show_level1()
+
+
+
+
