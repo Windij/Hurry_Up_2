@@ -678,7 +678,6 @@ class StartWindow:
 class DB():
     modal = pygame.Surface((500, 250))
     modal.fill((200, 200, 200))
-
     pygame.init()
 
     WIDTH = 500
