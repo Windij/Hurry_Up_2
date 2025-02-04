@@ -818,7 +818,6 @@ PAUSE_BUTTON_HEIGHT = 40
 
 y_offset = SCREEN_HEIGHT - digit_height
 
-
 def draw_digit(screen, number, x, y, color):
     num_str = str(number).zfill(3)
     for i, digit in enumerate(num_str):
