@@ -9,7 +9,6 @@ pygame.init()
 conn = sqlite3.connect('gamer.db')
 cursor = conn.cursor()
 
-
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 850
 BOARD_WIDTH = 9
@@ -17,7 +16,7 @@ BOARD_HEIGHT = 9
 TILE_SIZE = 60
 BROWN = (123, 63, 0)
 RED = (255, 0, 0)
-GREEN = (21,71,52)
+GREEN = (21, 71, 52)
 BLACK = (0, 0, 0)
 GRAY = (200, 200, 200)
 GOLD = (255, 215, 0)
@@ -26,9 +25,10 @@ BLUE = (0, 0, 255)
 LIGHT_YELLOW = (255, 255, 150)
 WHITE = (255, 255, 255)
 GRID_LINE_COLOR = BLACK
-LEVEL_FILE = 'level.txt'
+LEVEL1_FILE = 'level.txt'
 LEVEL2_FILE = "level2.txt"
-TRAJECTORY_FILE = 'trajectory.txt'
+TRAJECTORY1_FILE = 'trajectory.txt'
+TRAJECTORY2_FILE = 'trajectory2.txt'
 size = SCREEN_WIDTH, SCREEN_HEIGHT
 screen = pygame.display.set_mode(size)
 pygame.display.set_caption('Level Mover')
@@ -52,7 +52,7 @@ def load_image(name, colorkey=None):
 
 pictures = {
     '#': load_image('стены.png'),
-    '1':load_image('плитка 1.png'),
+    '1': load_image('плитка 1.png'),
     '2': load_image('плитка 2.png'),
     '3': load_image('плитка 3.png'),
     '4': load_image('плитка черепки.png'),
@@ -117,6 +117,7 @@ class Player(Base):
     def __init__(self, x, y, color, columns):
         super().__init__(x, y, color, columns=columns)
         self.mask = pygame.mask.from_surface(self.image)
+
     def move(self, dx, dy):
         pass
 
@@ -280,9 +281,6 @@ class Board:
         self.cell_size = TILE_SIZE
         self.screen_2 = pygame.Surface((self.width * self.cell_size,
                                         self.height * self.cell_size))
-        self.image_normal = load_image('pause_.png', colorkey=-1)
-        self.image_pressed = load_image('pressed_pause_.png', colorkey=-1)
-
 
     def set_view(self, left, top, cell_size):
         self.left = left
@@ -380,7 +378,9 @@ class Board:
                             self.water.remove(water)
                             break
                     self.sand.remove(tile)
-
+                if any(pygame.sprite.collide_mask(block, tile) for block in self.sand if tile != block):
+                    tile.move(dx, dy)
+                    flag = True
         for tile in self.keys:
             tile.move(dx, dy)
             if self.p1.rect.colliderect(tile.rect):
@@ -429,7 +429,7 @@ class Board:
             total_score = 1000 + time_left * 10
             record = self.load_record()  # Call using self
             improvement = total_score - record if record != 0 else "——"
-            self.save_record(time_left, total_score) # Call using self, passing in values
+            self.save_record(time_left, total_score)  # Call using self, passing in values
             inventory.items = []
             return True
         return False
@@ -439,7 +439,6 @@ class Board:
             if pygame.sprite.collide_mask(self.p1, monster):
                 return True
         return False
-
 
     def load_record(self):
         try:
@@ -453,25 +452,24 @@ class Board:
             print(f"Error loading record: {error}")
             return 0
 
-
     def save_record(self, time_left, total_score):
-      try:
-        sqlite_connection = sqlite3.connect('gamer.db')
-        cursor = sqlite_connection.cursor()
+        try:
+            sqlite_connection = sqlite3.connect('gamer.db')
+            cursor = sqlite_connection.cursor()
 
-        # Check if a record with level_name = 1 exists
-        cursor.execute("SELECT id FROM gamer WHERE level_name=1")
-        existing_record = cursor.fetchone()
+            # Check if a record with level_name = 1 exists
+            cursor.execute("SELECT id FROM gamer WHERE level_name=1")
+            existing_record = cursor.fetchone()
 
-        if existing_record:
-        # Update the existing record
-             cursor.execute('UPDATE gamer SET time = ?, score = ? WHERE level_name = 1', (time_left, total_score))
-        # else:
-        # # Insert a new record
-        #      cursor.execute('INSERT INTO gamer (time, score, level_name) VALUES (?, ?, ?)', (time_left, total_score, 1))
-        sqlite_connection.commit()
-        sqlite_connection.close()
-      except sqlite3.Error as error:
+            if existing_record:
+                # Update the existing record
+                cursor.execute('UPDATE gamer SET time = ?, score = ? WHERE level_name = 1', (time_left, total_score))
+            # else:
+            # # Insert a new record
+            #      cursor.execute('INSERT INTO gamer (time, score, level_name) VALUES (?, ?, ?)', (time_left, total_score, 1))
+            sqlite_connection.commit()
+            sqlite_connection.close()
+        except sqlite3.Error as error:
             print(f"Error saving record: {error}")
             return 0
 
@@ -556,7 +554,8 @@ class PopupWindow:
         self.rect = pygame.Rect(SCREEN_WIDTH // 2 - width // 2, SCREEN_HEIGHT // 2 - height // 2, width, height)
         self.running = True
         self.close_button = Button('', self.rect.x + self.width - 140, self.rect.y + self.height, 120, 30,
-                                   RED, (200, 0, 0), self.close, nonpress_image=close_image,press_image= pressed_close_image)
+                                   RED, (200, 0, 0), self.close, nonpress_image=close_image,
+                                   press_image=pressed_close_image)
         self.background_image = background_image
         self.line_spacing = 5
         self.text_surfaces = self.render_text()
@@ -611,8 +610,8 @@ class StartWindow:
 
         self.beton_image = pygame.transform.scale(load_image('wallpaper_.png', colorkey=-1), (450, 300))
 
-        self.exit = load_image('exit_.png',colorkey=-1)
-        self.pressed_exit = load_image('pressed_exit_.png',colorkey=-1)
+        self.exit = load_image('exit_.png', colorkey=-1)
+        self.pressed_exit = load_image('pressed_exit_.png', colorkey=-1)
 
         self.start_game_table_rect = None
         self.create_buttons()
@@ -644,14 +643,18 @@ class StartWindow:
 
     def show_about(self):
         self.popup_window = PopupWindow(self.screen,
-                                        "\n\n\n\nЗдесь \n информация \n об \n правилах \n игры",
+                                        '\n\n\nУправляйте персонажем с помощью WASD.'
+                                        '\n\nИзбегайте опасностей.\n\nСледи за временем.'
+                                        '\n\nСобирайте сундуки.',
                                         450, 300,
                                         self.beton_image, self.exit, self.pressed_exit)
         self.popup_window.run()
         self.popup_window = None
 
     def show_authors(self):
-        self.popup_window = PopupWindow(self.screen, "\n\n\n\nЗдесь \n информация \n об \n авторах", 450, 300,
+        self.popup_window = PopupWindow(self.screen,
+                                        '\n\n\n\n\nНад проектом работали:\nСпивак Максим Игоревич - @Maxusmini\n'
+                                        'Кривова Полина Дмитриевна - @polly_kriv\n2024-2025\n', 450, 300,
                                         self.beton_image, self.exit, self.pressed_exit)
         self.popup_window.run()
         self.popup_window = None
@@ -672,34 +675,44 @@ class StartWindow:
                     button.draw(self.screen)
             pygame.display.flip()
 
+class DB():
+    modal = pygame.Surface((500, 250))
+    modal.fill((200, 200, 200))
 
-class DataBase(PopupWindow):
-    def __init__(self):
-        self.conn = sqlite3.connect('gamer.db')
-        self.cursor = self.conn.cursor()
+    pygame.init()
 
-        self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS gamer (
-                id INTEGER PRIMARY KEY,
-                level_name INTEGER,
-                score INTEGER,
-                time INTEGER
-            )
-        ''')
-        self.conn.commit()
+    WIDTH = 500
+    HEIGHT = 250
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("Scores")
 
-        self.cursor.execute("SELECT COUNT(*) FROM gamer")
-        count = self.cursor.fetchone()[0]
-        if count == 0:
-            initial_data = [
-                (1, 1, None, None),
-                (2, 2, None, None),
-                (3, 3, None, None)]
-            self.cursor.executemany("INSERT INTO gamer VALUES (?, ?, ?, ?)", initial_data)
-            self.conn.commit()
+    font3 = pygame.font.Font(None, 24)
 
+    conn = sqlite3.connect('gamer.db')
+    cursor = conn.cursor()
 
-    def draw_text(self, text, font, color, x, y, align="left"):
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS gamer (
+            id INTEGER PRIMARY KEY,
+            level_name INTEGER,
+            score INTEGER,
+            time INTEGER
+        )
+    ''')
+    conn.commit()
+
+    cursor.execute("SELECT COUNT(*) FROM gamer")
+    count = cursor.fetchone()[0]
+    if count == 0:
+        initial_data = [
+            (1, 1, None, None),
+            (2, 2, None, None),
+            (3, 3, None, None)
+        ]
+        cursor.executemany("INSERT INTO gamer (id, level_name, score, time) VALUES (?, ?, ?, ?)", initial_data)
+        conn.commit()
+
+    def draw_text(text, font, color, x, y, align="left"):
         text_surface = font.render(text, True, color)
         text_rect = text_surface.get_rect()
         if align == "left":
@@ -711,59 +724,48 @@ class DataBase(PopupWindow):
         screen.blit(text_surface, text_rect)
         return text_rect
 
-    def draw_table(self):
+    def draw_table():
         header_y = 40
         row_height = 30
         column_spacing = 150
         level_x = 50
+        font3 = pygame.font.Font(None, 24)
         score_x = level_x + column_spacing
         time_x = score_x + column_spacing
 
         pygame.draw.line(screen, BLACK, (level_x - 10, header_y + 20), (time_x + 100, header_y + 20), 1)
-        self.draw_text("Level", font1, BLACK, level_x, header_y)
-        self.draw_text("Score", font1, BLACK, score_x + 40, header_y + 6, align="center")
-        self.draw_text("Time", font1, BLACK, time_x + 20, header_y + 6, align="center")
+        header_rect = draw_text("Level", font3, BLACK, level_x, header_y)
+        score_header_rect = draw_text("Score", font3, BLACK, score_x + 40, header_y + 6, align="center")
+        time_header_rect = draw_text("Time", font3, BLACK, time_x + 20, header_y + 6, align="center")
 
-        # Draw the "Clear Table" button
-        clear_button_rect = pygame.draw.rect(screen, GRAY, (250, 190, 200, 50), 0)
-        self.draw_text("CLEAR TABLE", font1, WHITE, 295, 208)
-
-        self.cursor.execute("SELECT level_name, score, time FROM gamer")
-        scores = self.cursor.fetchall()
+        cursor.execute("SELECT level_name, score, time FROM gamer")
+        scores = cursor.fetchall()
 
         y_pos = header_y + row_height
         lesson_rects = {}
         for lesson_number, score, time in scores:
-            pygame.draw.line(screen, GRAY, (level_x - 10, y_pos + 20), (time_x + 100, y_pos + 20), 1)
+            pygame.draw.line(screen, GRAY, (level_x - 10, y_pos + 20), (time_x + 100, y_pos + 20),
+                             1)
             level_text = f"{lesson_number}    LESSON {lesson_number}"
-            lesson_rects[lesson_number] = self.draw_text(level_text, font1, BLACK, level_x, y_pos)
+            lesson_rects[lesson_number] = draw_text(level_text, font3, BLACK, level_x, y_pos)
             score_text = str(score) if score is not None else "---"
-            self.draw_text(score_text, font1, BLACK, score_x + 40, y_pos + 6, align="center")
+            draw_text(score_text, font3, BLACK, score_x + 40, y_pos + 6, align="center")
             time_text = str(time) if time is not None else "---"
-            self.draw_text(time_text, font1, BLACK, time_x + 20, y_pos + 6, align="center")
+            draw_text(time_text, font3, BLACK, time_x + 20, y_pos + 6, align="center")
             y_pos += row_height
 
         pygame.draw.line(screen, BLACK, (level_x - 10, y_pos + 20), (time_x + 100, y_pos + 20), 1)
-        self.draw_text("LEVEL SET TOTAL", font1, BLACK, level_x, y_pos)
-        self.cursor.execute("SELECT sum(score) FROM gamer WHERE score IS NOT NULL")
-        total = self.cursor.fetchone()[0]
+        draw_text("LEVEL SET TOTAL", font3, BLACK, level_x, y_pos)
+        cursor.execute("SELECT sum(score) FROM gamer WHERE score IS NOT NULL")
+        total = cursor.fetchone()[0]
         if total is None:
             total = 0
-        self.draw_text(str(total), font1, BLACK, score_x + 40, y_pos + 6, align="center")
-        return lesson_rects, clear_button_rect
+        draw_text(str(total), font3, BLACK, score_x + 40, y_pos + 6, align="center")
+        return lesson_rects
 
-    def handle_click(self, lesson_rects, mouse_pos, clear_button_rect):
-        for lesson_number, rect in lesson_rects.items():
-            if rect.collidepoint(mouse_pos):
-                self.run_level(lesson_number)
-                return
-        if clear_button_rect.collidepoint(mouse_pos):
-            self.clear_scores()
-
-
-
-    def run_level(self, level_number):
+    def run_level(level_number):
         level_running = True
+        level_count = 0
         while level_running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -774,29 +776,18 @@ class DataBase(PopupWindow):
                     if event.key == pygame.K_ESCAPE:
                         level_running = False
 
+    def handle_click(lesson_rects, mouse_pos):
+        for lesson_number, rect in lesson_rects.items():
+            if rect.collidepoint(mouse_pos):
+                run_level(lesson_number)
+
             screen.fill(WHITE)
             pygame.display.flip()
 
-    def clear_scores(self):
-        self.cursor.execute("UPDATE gamer SET score = NULL, time = NULL")
-        self.conn.commit()
+    conn.close()
+    pygame.quit()
 
-    def __del__(self):
-        self.conn.close()
-
-    def update(self, mouse_pos, mouse_click):
-        if self.rect.collidepoint(mouse_pos):
-            if mouse_click:
-               self.is_pressed = not self.is_pressed
-               if self.is_pressed:
-                   self.image = self.image_pressed
-               else:
-                   self.image = self.image_normal
-
-    def draw(self, surface):
-        surface.blit(self.image, self.rect)
-
-
+pygame.init()
 
 font_size = 40
 
@@ -817,6 +808,7 @@ PAUSE_BUTTON_WIDTH = 120
 PAUSE_BUTTON_HEIGHT = 40
 
 y_offset = SCREEN_HEIGHT - digit_height
+
 
 def draw_digit(screen, number, x, y, color):
     num_str = str(number).zfill(3)
@@ -870,12 +862,10 @@ class Pause_button(Button):
     def draw(self, screen):
         screen.blit(self.image, self.rect)
 
-pygame.mixer.init()
-
 
 def main():
     level = 1
-    chips_left = 5
+    chips_left = 1
     time_left = 100
     clock = pygame.time.Clock()
 
@@ -897,7 +887,7 @@ def main():
 
     if not start_window.running:
         board = Board(BOARD_WIDTH, BOARD_HEIGHT)
-        board.load_level(LEVEL_FILE, trajectory)
+        board.load_level(LEVEL1_FILE, trajectory)
 
         inventory = Inventory(7, 1)
         inventory.set_view(board.left + TILE_SIZE,
@@ -907,9 +897,6 @@ def main():
                                     GRAY, BLUE, nonpress_image=load_image('pause_.png', colorkey=-1),
                                     press_image=load_image('pressed_pause_.png', colorkey=-1))
 
-        music_button = Music_button(image_normal, image_pressed, button_center)
-
-        is_music_playing = False
         running = True
         while running:
             for event in pygame.event.get():
@@ -919,26 +906,6 @@ def main():
                 if pause_button.rect.collidepoint(mouse_pos) and pygame.mouse.get_pressed()[0]:
                     is_paused = not is_paused
                     pause_button.pause(is_paused)
-                mouse_pos = pygame.mouse.get_pos()
-                mouse_click = False
-
-                if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-                    mouse_click = True
-                    music_button.update(mouse_pos, mouse_click)
-
-                if mouse_click and music_button.is_pressed:
-                    if is_music_playing:
-                        pygame.mixer.music.pause()
-                        is_music_playing = False
-
-                    else:
-                        pygame.mixer.music.unpause()
-                        is_music_playing = True
-
-                elif mouse_click and not music_button.is_pressed and not is_music_playing:
-                    pygame.mixer.music.play(-1)  # Loop the music indefinetly
-                    is_music_playing = True
-
                 if event.type == pygame.KEYDOWN and not is_paused and not game_over and not level_complete:
                     dx = 0
                     dy = 0
@@ -961,15 +928,14 @@ def main():
                 if event.type == pygame.KEYDOWN and game_over:
                     if event.key == pygame.K_RETURN:
                         game_over = False
-                        board.load_level(LEVEL_FILE, trajectory)
-                        chips_left = 5
+                        board.load_level(LEVEL1_FILE, TRAJECTORY1_FILE)
+                        chips_left = 1
                         time_left = 100
-                if event.type == pygame.KEYDOWN and level_complete:
-                    if event.key == pygame.K_RETURN:
-                        level_complete = False
-                        board.load_level(LEVEL_FILE, trajectory)
-                        chips_left = 5
-                        time_left = 100
+                if level_complete:
+                    level_complete = False
+                    board.load_level(LEVEL2_FILE, TRAJECTORY2_FILE)
+                    chips_left = 1
+                    time_left = 100
 
             if not is_paused and chips_left > 0 and not game_over and not level_complete:
                 current_time = time.time()
@@ -1015,7 +981,6 @@ def main():
                 screen.blit(die_image, die_rect)
 
             clock.tick(30)
-            all_sprites.draw(screen)
             pygame.display.flip()
 
     pygame.quit()
