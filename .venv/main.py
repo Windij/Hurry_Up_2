@@ -938,17 +938,7 @@ def main():
                 elif mouse_click and not music_button.is_pressed and not is_music_playing:
                     pygame.mixer.music.play(-1)  # Loop the music indefinetly
                     is_music_playing = True
-                # if event.type == pygame.KEYDOWN:
-                #     if event.key == pygame.K_SPACE:
-                #         is_paused = not is_paused
-                #         if is_paused:
-                #             pygame.mixer.music.pause()
-                #         else:
-                #             pygame.mixer.music.unpause()
-                #             music_button.pause(is_paused)
-                # # if music_button.rect.collidepoint(mouse_pos) and pygame.mouse.get_pressed()[0]:
-                # #     is_paused = not is_paused
-                # #     music_button.pause(is_paused)
+
                 if event.type == pygame.KEYDOWN and not is_paused and not game_over and not level_complete:
                     dx = 0
                     dy = 0
