@@ -4,11 +4,9 @@ import os
 import time
 import math
 import sqlite3
-
 pygame.init()
 conn = sqlite3.connect('gamer.db')
 cursor = conn.cursor()
-
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 850
 BOARD_WIDTH = 9
@@ -33,8 +31,6 @@ size = SCREEN_WIDTH, SCREEN_HEIGHT
 screen = pygame.display.set_mode(size)
 pygame.display.set_caption('Level Mover')
 all_sprites = pygame.sprite.Group()
-
-
 def load_image(name, colorkey=None):
     fullname = os.path.join('data', name)
     # если файл не существует, то выходим
@@ -48,8 +44,6 @@ def load_image(name, colorkey=None):
             colorkey = image.get_at((0, 0))
         image.set_colorkey(colorkey)
     return image
-
-
 pictures = {
     '#': load_image('стены.png'),
     '1': load_image('плитка 1.png'),
@@ -74,8 +68,6 @@ pictures = {
     'O': load_image('none_activated_portal.png', colorkey=-1),
     'M': load_image('skeleton_run.png', colorkey=-1)
 }
-
-
 class Base(pygame.sprite.Sprite):
     def __init__(self, x, y, color, indicator=0, columns=1, rows=1):
         super().__init__(all_sprites)
@@ -88,18 +80,15 @@ class Base(pygame.sprite.Sprite):
         self.rect.x = x * TILE_SIZE
         self.rect.y = y * TILE_SIZE
         self.flag_for_reverse = -1
-
     def move(self, dx, dy):
         self.rect.x += dx * TILE_SIZE
         self.rect.y += dy * TILE_SIZE
-
     def cut_sheet(self, sheet, columns, rows):
         self.rect = pygame.Rect(0, 0, sheet.get_width() // columns, sheet.get_height() // rows)
         for j in range(rows):
             for i in range(columns):
                 frame_location = (self.rect.w * i, self.rect.h * j)
                 self.frames.append(sheet.subsurface(pygame.Rect(frame_location, self.rect.size)))
-
     def reverse_image(self, dx):
         if dx == 0:
             return
@@ -107,30 +96,21 @@ class Base(pygame.sprite.Sprite):
             for i, frame in enumerate(self.frames):
                 self.frames[i] = pygame.transform.flip(frame, True, False)
             self.flag_for_reverse = dx
-
     def update(self):
         self.cur_frame = (self.cur_frame + 1) % len(self.frames)
         self.image = self.frames[self.cur_frame]
-
-
 class Player(Base):
     def __init__(self, x, y, color, columns):
         super().__init__(x, y, color, columns=columns)
         self.mask = pygame.mask.from_surface(self.image)
-
     def move(self, dx, dy):
         pass
-
     def is_collide(self, all_tiles):
         return pygame.sprite.spritecollideany(self, all_tiles)
-
-
 class Door(Base):
     def __init__(self, x, y, color, indicator, columns):
         super().__init__(x, y, color, indicator=indicator, columns=columns)
         self.is_open = False
-
-
 class Monster(Base):
     def __init__(self, color, trajectory_file, columns):
         self.trajectory = self.load_trajectory(trajectory_file)
@@ -141,7 +121,6 @@ class Monster(Base):
         self.x, self.y = self.trajectory[0]
         super().__init__(self.x, self.y, color, columns=columns)
         self.mask = pygame.mask.from_surface(self.image)
-
     def load_trajectory(self, filename):
         trajectory = []
         with open(f'data/{filename}', 'r') as file:
@@ -149,35 +128,25 @@ class Monster(Base):
                 x, y = map(float, line.strip().split(','))
                 trajectory.append([x, y])
         return trajectory
-
     def calculate_movement(self):
         x1, y1 = self.trajectory[self.current_point_index]
         x2, y2 = self.trajectory[self.next_point_index]
-
         dx = x2 - x1
         dy = y2 - y1
         self.reverse_image(dx)
-
         distance = math.sqrt(dx ** 2 + dy ** 2)
-
         if distance == 0:
             return 0, 0
-
         speed_x = self.speed * dx / distance
         speed_y = self.speed * dy / distance
-
         return speed_x, speed_y
-
     def update_monster(self):
         speed_x, speed_y = self.calculate_movement()
-
         self.x += speed_x
         self.y += speed_y
         self.rect.x = self.x
         self.rect.y = self.y
-
         next_x, next_y = self.trajectory[self.next_point_index]
-
         # Проверка достижения точки
         if speed_x > 0:
             if self.x >= next_x:
@@ -185,18 +154,15 @@ class Monster(Base):
         elif speed_x < 0:
             if self.x <= next_x:
                 self.x = next_x
-
         if speed_y > 0:
             if self.y >= next_y:
                 self.y = next_y
         elif speed_y < 0:
             if self.y <= next_y:
                 self.y = next_y
-
         if self.x == next_x and self.y == next_y:
             self.current_point_index = self.next_point_index
             self.next_point_index = (self.next_point_index + 1) % len(self.trajectory)
-
     def move(self, dx, dy):
         self.x += dx * TILE_SIZE
         self.y += dy * TILE_SIZE
@@ -204,8 +170,6 @@ class Monster(Base):
             pos[0] += dx * TILE_SIZE
             pos[1] += dy * TILE_SIZE
         self.update()
-
-
 def load_level(filename):
     level_data = []
     try:
@@ -216,8 +180,6 @@ def load_level(filename):
         print(f"File {filename} not found")
         return []
     return level_data
-
-
 def create_level(level_data, trajectory):
     wall = pygame.sprite.Group()
     floor = pygame.sprite.Group()
@@ -269,8 +231,6 @@ def create_level(level_data, trajectory):
             elif tile_type in '.1234':
                 floor.add(tile)
     return wall, floor, player, p1, keys, doors, chips, water, sand, portal, monsters
-
-
 class Board:
     def __init__(self, width, height):
         self.width = width
@@ -281,13 +241,11 @@ class Board:
         self.cell_size = TILE_SIZE
         self.screen_2 = pygame.Surface((self.width * self.cell_size,
                                         self.height * self.cell_size))
-
     def set_view(self, left, top, cell_size):
         self.left = left
         self.top = top
         self.cell_size = cell_size
         self.screen_2 = pygame.Surface((self.width * self.cell_size, self.height * self.cell_size))
-
     def render(self, screen):
         for y in range(self.height):
             for x in range(self.width):
@@ -299,11 +257,9 @@ class Board:
                     x * self.cell_size + 1,
                     y * self.cell_size + 1, self.cell_size - 2,
                     self.cell_size - 2))
-
     def get_click(self, mouse_pos):
         cell = self.get_cell(mouse_pos)
         self.on_click(cell)
-
     def get_cell(self, mouse_pos):
         if self.left <= mouse_pos[0] < self.left + self.width * self.cell_size and \
                 self.top <= mouse_pos[1] < self.top + self.height * self.cell_size:
@@ -311,10 +267,8 @@ class Board:
                     int((mouse_pos[0] - self.left) / self.cell_size))
         else:
             return None
-
     def on_click(self, cell_coords):
         pass
-
     def load_level(self, filename, trajectory):
         level_data = load_level(filename)
         (self.wall, self.floor, self.player, self.p1, self.keys, self.doors, self.chips, self.water,
@@ -351,7 +305,6 @@ class Board:
         for tile in self.monsters:
             tile.rect.x += delta_x
             tile.rect.y += delta_y
-
     def move_level(self, dx, dy, inventory, chips_left):
         flag = False
         self.p1.reverse_image(dx)
@@ -404,11 +357,9 @@ class Board:
             self.move_level(-dx, -dy, inventory, chips_left)
             self.p1.reverse_image(dx)
         return chips_left
-
     def move_monsters(self):
         for monster in self.monsters:
             monster.update_monster()
-
     def draw_level(self, screen):
         self.screen_2.fill((0, 0, 0, 0))
         self.render(self.screen_2)
@@ -423,7 +374,6 @@ class Board:
         self.water.draw(self.screen_2)
         self.monsters.draw(self.screen_2)
         screen.blit(self.screen_2, (self.left, self.top))
-
     def check_portal_collision(self, chips_left, time_left, screen, inventory):
         if self.p1.is_collide(self.portal) and chips_left == 0:
             total_score = 1000 + time_left * 10
@@ -433,13 +383,11 @@ class Board:
             inventory.items = []
             return True
         return False
-
     def check_monster_collision(self, monsters):
         for monster in monsters:
             if pygame.sprite.collide_mask(self.p1, monster):
                 return True
         return False
-
     def load_record(self):
         try:
             sqlite_connection = sqlite3.connect('gamer.db')
@@ -451,16 +399,13 @@ class Board:
         except sqlite3.Error as error:
             print(f"Error loading record: {error}")
             return 0
-
     def save_record(self, time_left, total_score):
         try:
             sqlite_connection = sqlite3.connect('gamer.db')
             cursor = sqlite_connection.cursor()
-
             # Check if a record with level_name = 1 exists
             cursor.execute("SELECT id FROM gamer WHERE level_name=1")
             existing_record = cursor.fetchone()
-
             if existing_record:
                 # Update the existing record
                 cursor.execute('UPDATE gamer SET time = ?, score = ? WHERE level_name = 1', (time_left, total_score))
@@ -472,13 +417,10 @@ class Board:
         except sqlite3.Error as error:
             print(f"Error saving record: {error}")
             return 0
-
-
 class Inventory(Board):
     def __init__(self, width, height):
         super().__init__(width, height)
         self.items = []
-
     def render(self, screen):
         for y in range(self.height):
             for x in range(self.width):
@@ -492,12 +434,9 @@ class Inventory(Board):
             item.rect.x = self.left + i * self.cell_size
             item.rect.y = self.top
             screen.blit(item.image, item.rect)
-
     def add_to_inventory(self, item):
         if len(self.items) < self.width:
             self.items.append(item)
-
-
 class Button:
     def __init__(self, text, x, y, width, height, color, hover_color, action=None, nonpress_image=None,
                  press_image=None):
@@ -518,7 +457,6 @@ class Button:
         self.rect = self.rect.move(x, y)
         self.pressed_image = press_image
         self.nonpress_image = nonpress_image
-
     def draw(self, screen):
         mouse_pos = pygame.mouse.get_pos()
         if self.image:
@@ -535,13 +473,10 @@ class Button:
                 pygame.draw.rect(screen, self.color, self.rect)
         if self.text != '':
             screen.blit(self.text_surface, self.text_rect)
-
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN:
             if self.rect.collidepoint(event.pos) and self.action:
                 self.action()
-
-
 class PopupWindow:
     def __init__(self, screen, text, width, height, background_image=None, close_image=None, pressed_close_image=None):
         self.screen = screen
@@ -559,10 +494,8 @@ class PopupWindow:
         self.background_image = background_image
         self.line_spacing = 5
         self.text_surfaces = self.render_text()
-
     def close(self):
         self.running = False
-
     def render_text(self):
         lines = self.text.split('\n')
         text_surfaces = []
@@ -573,7 +506,6 @@ class PopupWindow:
             text_surfaces.append((text_surface, text_rect))
             y += text_surface.get_height() + self.line_spacing
         return text_surfaces
-
     def run(self):
         while self.running:
             for event in pygame.event.get():
@@ -581,7 +513,6 @@ class PopupWindow:
                     pygame.quit()
                     sys.exit()
                 self.close_button.handle_event(event)
-
             if self.background_image:
                 self.screen.blit(self.background_image, self.rect)
             else:
@@ -590,36 +521,27 @@ class PopupWindow:
                 self.screen.blit(text_surface, text_rect)
             self.close_button.draw(self.screen)
             pygame.display.flip()
-
-
 class StartWindow:
     def __init__(self, screen):
         self.screen = screen
         self.buttons = []
         self.running = True
         self.background_image = load_image('dungeon_entrance.jpg')
-
         self.play = load_image('play_.png', colorkey=-1)
         self.pressed_play = load_image('pressed_play_.png', colorkey=-1)
-
         self.about = load_image('about_.png', colorkey=-1)
         self.pressed_about = load_image('pressed_about_.png', colorkey=-1)
-
         self.rule = load_image('rule_.png', colorkey=-1)
         self.pressed_rule = load_image('pressed_rule_.png', colorkey=-1)
-
         self.beton_image = pygame.transform.scale(load_image('wallpaper_.png', colorkey=-1), (450, 300))
-
         self.exit = load_image('exit_.png', colorkey=-1)
         self.pressed_exit = load_image('pressed_exit_.png', colorkey=-1)
-
         self.start_game_table_rect = None
         self.create_buttons()
         self.popup_window = None
         self.animation_start_time = 0
         self.animation_duration = 2
         self.animating = False
-
     def create_buttons(self):
         button_width = 200
         button_height = 50
@@ -637,10 +559,8 @@ class StartWindow:
         button_y += space
         self.buttons.append(Button('', start_x - 100, button_y, button_width, button_height, GOLD, (200, 170, 0),
                                    self.show_authors, nonpress_image=self.about, press_image=self.pressed_about))
-
     def start_game(self):
         self.running = False
-
     def show_about(self):
         self.popup_window = PopupWindow(self.screen,
                                         '\n\n\nУправляйте персонажем с помощью WASD.'
@@ -650,7 +570,6 @@ class StartWindow:
                                         self.beton_image, self.exit, self.pressed_exit)
         self.popup_window.run()
         self.popup_window = None
-
     def show_authors(self):
         self.popup_window = PopupWindow(self.screen,
                                         '\n\n\n\n\nНад проектом работали:\nСпивак Максим Игоревич - @Maxusmini\n'
@@ -658,7 +577,6 @@ class StartWindow:
                                         self.beton_image, self.exit, self.pressed_exit)
         self.popup_window.run()
         self.popup_window = None
-
     def run(self):
         while self.running:
             for event in pygame.event.get():
@@ -674,89 +592,239 @@ class StartWindow:
                 for button in self.buttons:
                     button.draw(self.screen)
             pygame.display.flip()
-
-
+class DB():
+    def __init__(self, main_screen):
+        self.WIDTH = 500
+        self.HEIGHT = 250
+        self.modal = pygame.Surface((self.WIDTH, self.HEIGHT))
+        self.modal.fill(GRAY)
+        self.screen = main_screen
+        self.font3 = pygame.font.Font(None, 24)
+        try:
+            self.conn = sqlite3.connect('gamer.db')
+            self.cursor = self.conn.cursor()
+        except sqlite3.Error as e:
+            print(f"Ошибка подключения к базе данных: {e}")
+            sys.exit()
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS gamer (
+                id INTEGER PRIMARY KEY,
+                level_name INTEGER,
+                score INTEGER,
+                time INTEGER
+            )
+        ''')
+        self.conn.commit()
+        self.cursor.execute("SELECT COUNT(*) FROM gamer")
+        count = self.cursor.fetchone()[0]
+        if count == 0:
+            initial_data = [
+                (1, 1, None, None),
+                (2, 2, None, None),
+                (3, 3, None, None)
+            ]
+            self.cursor.executemany("INSERT INTO gamer (id, level_name, score, time) VALUES (?, ?, ?, ?)", initial_data)
+            self.conn.commit()
+    def draw_text(self, text, font, color, x, y, align="left"):
+        text_surface = font.render(text, True, color)
+        text_rect = text_surface.get_rect()
+        if align == "left":
+            text_rect.topleft = (x, y)
+        elif align == "center":
+            text_rect.center = (x, y)
+        elif align == "right":
+            text_rect.topright = (x, y)
+        self.modal.blit(text_surface, text_rect)
+        return text_rect
+    def draw_table(self):
+        header_y = 40
+        row_height = 30
+        column_spacing = 150
+        level_x = 50
+        score_x = level_x + column_spacing
+        time_x = score_x + column_spacing
+        pygame.draw.line(self.modal, BLACK, (level_x - 10, header_y + 20), (time_x + 100, header_y + 20), 1)
+        self.draw_text("Level", self.font3, BLACK, level_x, header_y)
+        self.draw_text("Score", self.font3, BLACK, score_x + 40, header_y + 6, align="center")
+        self.draw_text("Time", self.font3, BLACK, time_x + 20, header_y + 6, align="center")
+        self.cursor.execute("SELECT level_name, score, time FROM gamer")
+        scores = self.cursor.fetchall()
+        y_pos = header_y + row_height
+        lesson_rects = {}
+        for lesson_number, score, time in scores:
+            pygame.draw.line(self.modal, GRAY, (level_x - 10, y_pos + 20), (time_x + 100, y_pos + 20), 1)
+            level_text = f"{lesson_number}    LESSON {lesson_number}"
+            lesson_rects[lesson_number] = self.draw_text(level_text, self.font3, BLACK, level_x, y_pos)
+            score_text = str(score) if score is not None else "---"
+            self.draw_text(score_text, self.font3, BLACK, score_x + 40, y_pos + 6, align="center")
+            time_text = str(time) if time is not None else "---"
+            self.draw_text(time_text, self.font3, BLACK, time_x + 20, y_pos + 6, align="center")
+            y_pos += row_height
+        pygame.draw.line(self.modal, BLACK, (level_x - 10, y_pos + 20), (time_x + 100, y_pos + 20), 1)
+        self.draw_text("LEVEL SET TOTAL", self.font3, BLACK, level_x, y_pos)
+        self.cursor.execute("SELECT sum(score) FROM gamer WHERE score IS NOT NULL")
+        total = self.cursor.fetchone()[0]
+        if total is None:
+            total = 0
+        self.draw_text(str(total), self.font3, BLACK, score_x + 40, y_pos + 6, align="center")
+        return lesson_rects
+    def handle_click(self, lesson_rects, mouse_pos): #added
+        for lesson_number, rect in lesson_rects.items(): #function to check the keys
+            if rect.collidepoint(mouse_pos): #if it is collide point
+                self.run_level(lesson_number)  #call to run functions
+                return #break
+    def run_level(self, level_number):  # Fix name functions to be object functions
+        level_running = True
+        while level_running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    level_running = False
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        level_running = False
+                #Here what
+            self.screen.fill(WHITE) #put it inside
+            pygame.display.flip() #show display
+    def run(self, screen):
+        running = True
+        lesson_rects = {}
+        while running:
+            self.screen.blit(self.modal, (100, 100))
+            lesson_rects = self.draw_table() #add to run code
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False #False then quit display
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    mouse_pos = pygame.mouse.get_pos() #get positions
+                    self.handle_click(lesson_rects, mouse_pos)
+            self.draw_table() #Draw to Modal window
+            screen.blit(self.modal, (100, 100))
+            pygame.display.flip()
+    def close(self):
+        self.conn.close()
+        self.screen.fill(WHITE)
+        pygame.display.flip()
+    conn.close()
+    pygame.quit()
+class Level_button(pygame.sprite.Sprite):
+    def __init__(self, level_image, center):
+        super().__init__()
+        self.image_normal = level_image
+        self.image_pressed = pygame.transform.scale(level_image, (level_image.get_width(), level_image.get_height()))  # Используйте то же изображение или другое
+        self.image = self.image_normal
+        self.rect = self.image.get_rect(center=center)
+        self.is_pressed = False
+    def update(self, mouse_pos, mouse_click):
+        if self.rect.collidepoint(mouse_pos):
+            if mouse_click:
+                self.is_pressed = not self.is_pressed
+                if self.is_pressed:
+                    self.image = self.image_pressed  # Если нажат, меняем изображение
+                    self.open_new_window()  # вызываем метод для открытия нового окна
+                else:
+                    self.image = self.image_normal  # Если не нажат, возвращаем оригинальное изображение
+    def open_new_window(self):
+        # Здесь происходит логика открытия нового окна или уровня
+        print("Кнопка нажата! Открывается новое окно.")
+    def draw(self, surface):
+        surface.blit(self.image, self.rect)
+pygame.init()
 font_size = 40
-
 font1 = pygame.font.Font(None, font_size)
 font2 = pygame.font.Font("data/DS-DIGIB.TTF", font_size)
-
 clock = pygame.time.Clock()
 start_time = pygame.time.get_ticks()
 game_duration = 100
-
 level = 1
 digit_width = 20
 digit_height = 20
-
 PAUSE_BUTTON_X = 700
 PAUSE_BUTTON_Y = 760
 PAUSE_BUTTON_WIDTH = 120
 PAUSE_BUTTON_HEIGHT = 40
-
 y_offset = SCREEN_HEIGHT - digit_height
-
-
 def draw_digit(screen, number, x, y, color):
     num_str = str(number).zfill(3)
     for i, digit in enumerate(num_str):
         digit_surface = font2.render(digit, True, color)
         digit_rect = digit_surface.get_rect(center=(x + digit_width * i + digit_width // 2, y + digit_height // 2))
         screen.blit(digit_surface, digit_rect)
-
-
 def draw_text(screen, text, x, y, color):
     text_surface = font1.render(text, True, color)
     screen.blit(text_surface, (x, y))
-
-
 def draw_clock_face(screen, x, y, width, height, color):
     pygame.draw.rect(screen, color, (x, y, width, height))
-
-
+class Music_button(pygame.sprite.Sprite):
+    def __init__(self, image_normal, image_pressed, center):
+        super().__init__()
+        self.image_normal = image_normal
+        self.image_pressed = image_pressed
+        self.image = self.image_normal
+        self.rect = self.image.get_rect(center=center)
+        self.is_pressed = False
+    def update(self, mouse_pos, mouse_click):
+        if self.rect.collidepoint(mouse_pos):
+            if mouse_click:
+               self.is_pressed = not self.is_pressed
+               if self.is_pressed:
+                   self.image = self.image_pressed
+               else:
+                   self.image = self.image_normal
+    def draw(self, surface):
+        surface.blit(self.image, self.rect)
 class Pause_button(Button):
     def __init__(self, text, x, y, width, height, color, hover_color, nonpress_image=None
                  , press_image=None):
         super().__init__(text, x, y, width, height, color, hover_color, nonpress_image=nonpress_image,
                          press_image=press_image)
         self.is_paused = False
-
     def pause(self, is_paused):
         self.is_paused = is_paused
         self.image = self.pressed_image if self.is_paused else self.nonpress_image
-
     def draw(self, screen):
         screen.blit(self.image, self.rect)
-
-
 def main():
+    pygame.init()  # Инициализация Pygame
+    screen = pygame.display.set_mode((1000, 850))  # Установите размер экрана
+
+    # Определение переменных
     level = 1
-    chips_left = 5
+    chips_left = 1
     time_left = 100
     clock = pygame.time.Clock()
-
     start_window = StartWindow(screen)
     start_window.run()
-
+    dataBase = DB(screen)  # Создаем экземпляр БД
+    running = True
+    modal_active = False
     is_paused = False
     last_time = 0
     game_over = False
     level_complete = False
     trajectory = TRAJECTORY1_FILE
-    time_for_animation = time.time()
-
+    time_for_animation = pygame.time.get_ticks()  # Используем таймер Pygame
+    image_normal = load_image('music_but.png', colorkey=-1)
+    image_pressed = load_image('pressed_music_but.png', colorkey=-1)
+    level_image = load_image('level_but.png', colorkey=-1)
+    level_center = (50, 150)
+    level_button = Level_button(level_image, level_center)
+    button_center = (50, 50)
+    music_button = Music_button(image_normal, image_pressed, button_center)
+    all_sprites = pygame.sprite.Group(music_button, level_button)
+    pygame.mixer.music.load("music.mp3")
     if not start_window.running:
         board = Board(BOARD_WIDTH, BOARD_HEIGHT)
         board.load_level(LEVEL1_FILE, trajectory)
-
         inventory = Inventory(7, 1)
         inventory.set_view(board.left + TILE_SIZE,
                            board.top + board.cell_size * board.height + TILE_SIZE, TILE_SIZE)
-
         pause_button = Pause_button('', PAUSE_BUTTON_X, PAUSE_BUTTON_Y, PAUSE_BUTTON_WIDTH, PAUSE_BUTTON_HEIGHT,
                                     GRAY, BLUE, nonpress_image=load_image('pause_.png', colorkey=-1),
                                     press_image=load_image('pressed_pause_.png', colorkey=-1))
-
+        music_button = Music_button(image_normal, image_pressed, button_center)
+        is_music_playing = False
         running = True
         while running:
             for event in pygame.event.get():
@@ -766,6 +834,21 @@ def main():
                 if pause_button.rect.collidepoint(mouse_pos) and pygame.mouse.get_pressed()[0]:
                     is_paused = not is_paused
                     pause_button.pause(is_paused)
+                mouse_pos = pygame.mouse.get_pos()
+                mouse_click = False
+                if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                    mouse_click = True
+                    music_button.update(mouse_pos, mouse_click)
+                if mouse_click and music_button.is_pressed:
+                    if is_music_playing:
+                        pygame.mixer.music.pause()
+                        is_music_playing = False
+                    else:
+                        pygame.mixer.music.unpause()
+                        is_music_playing = True
+                elif mouse_click and not music_button.is_pressed and not is_music_playing:
+                    pygame.mixer.music.play(-1)  # Loop the music indefinetly
+                    is_music_playing = True
                 if event.type == pygame.KEYDOWN and not is_paused and not game_over and not level_complete:
                     dx = 0
                     dy = 0
@@ -784,20 +867,17 @@ def main():
                     if board.p1.is_collide(board.water):
                         game_over = True
                     level_complete = board.check_portal_collision(chips_left, time_left, screen, inventory)
-
                 if event.type == pygame.KEYDOWN and game_over:
                     if event.key == pygame.K_RETURN:
                         game_over = False
-                        board.load_level(LEVEL1_FILE, trajectory)
-                        chips_left = 1
+                        board.load_level(LEVEL1_FILE, TRAJECTORY1_FILE)
+                        chips_left = 5
                         time_left = 100
-                if event.type == pygame.KEYDOWN and level_complete:
-                    if event.key == pygame.K_RETURN:
-                        level_complete = False
-                        board.load_level(LEVEL1_FILE, trajectory)
-                        chips_left = 1
-                        time_left = 100
-
+                if level_complete:
+                    level_complete = False
+                    board.load_level(LEVEL2_FILE, TRAJECTORY2_FILE)
+                    chips_left = 5
+                    time_left = 100
             if not is_paused and chips_left > 0 and not game_over and not level_complete:
                 current_time = time.time()
                 if last_time == 0:
@@ -807,22 +887,17 @@ def main():
                     last_time = current_time
                 if time_left <= 0:
                     game_over = True
-
             if not is_paused and not game_over and not level_complete:
                 board.move_monsters()
                 if board.check_monster_collision(board.monsters):
                     game_over = True
-
             screen.fill(BLACK)
-
             draw_text(screen, "TIME:", 700, 740 - font_size, YELLOW)
             draw_clock_face(screen, 790, 690, 70, 40, GREEN)
             draw_digit(screen, time_left, 794, 700, LIGHT_YELLOW)
-
             draw_text(screen, "LEVEL:", 90, 780, YELLOW)
             draw_clock_face(screen, 275, 775, 70, 40, GREEN)
             draw_digit(screen, level, 282, 782, LIGHT_YELLOW)
-
             draw_text(screen, "STARS LEFT:", 90, 740 - font_size, YELLOW)
             draw_clock_face(screen, 275, 690, 70, 40, GREEN)
             draw_digit(screen, chips_left, 280, 700, LIGHT_YELLOW)
@@ -840,12 +915,9 @@ def main():
                 die_rect.topleft = (325, 107)
                 inventory.items = []
                 screen.blit(die_image, die_rect)
-
             clock.tick(30)
+            all_sprites.draw(screen)
             pygame.display.flip()
-
     pygame.quit()
-
-
 if __name__ == '__main__':
     main()
