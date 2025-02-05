@@ -917,7 +917,6 @@ def main():
     pygame.init()  # Инициализация Pygame
     screen = pygame.display.set_mode((1000, 850))  # Установите размер экрана
 
-    # Определение переменных
     level = 1
     chips_left = 1
     time_left = 100
