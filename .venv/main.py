@@ -678,13 +678,6 @@ class DB():
 
         return lesson_rects
 
-    def handle_click(self, lesson_rects, mouse_pos):
-        for lesson_number, rect in lesson_rects.items():
-            if rect.collidepoint(mouse_pos):
-                self.run_level(lesson_number)
-                return True
-        return True  # Оставить модальное окно открытым
-
     def run(self):
         running = True
         lesson_rects = {}
@@ -696,8 +689,6 @@ class DB():
                     running = False
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     mouse_pos = pygame.mouse.get_pos()
-                    if not self.handle_click(lesson_rects, mouse_pos):  # Обрабатываем нажатие на уроки
-                        running = False  # Закрыть модальное окно при нажатии на крестик
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
                     running = False  # Закрыть модальное окно при нажатии 'm'
 
@@ -793,7 +784,7 @@ def main():
 
     # Определение переменных
     current_level = 1
-    chips_left = 1
+    chips_left = 6
     time_left = 100
     clock = pygame.time.Clock()
     start_window = StartWindow(screen)
@@ -849,14 +840,14 @@ def main():
                     mouse_click = True
                     music_button.update(mouse_pos, mouse_click)
 
-                if mouse_click and music_button.is_pressed:
+                if music_button.is_pressed:
                     if is_music_playing:
+                        is_music_playing = True
+                        pygame.mixer.music.play(-1)
+                    else:
                         pygame.mixer.music.pause()
                         is_music_playing = False
-                    else:
-                        pygame.mixer.music.unpause()
-                        is_music_playing = True
-                elif mouse_click and not music_button.is_pressed and not is_music_playing:
+                elif mouse_click and is_music_playing == False:
                     pygame.mixer.music.play(-1)  # Повтор музыкального сопровождения
 
                 if event.type == pygame.KEYDOWN and not is_paused and not game_over and not level_complete:
@@ -884,8 +875,7 @@ def main():
                     if game_over and event.key == pygame.K_RETURN:
                         game_over = False
                         board.load_level(LEVEL1_FILE, trajectory)
-                        inventory = Inventory(7, 1)
-                        chips_left = 5
+                        chips_left = 7
                         time_left = 100
 
                 if level_complete:
@@ -903,7 +893,7 @@ def main():
                 if win_screen_active and event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE:
                         current_level = 1
-                        chips_left = 1
+                        chips_left = 7
                         time_left = 100
                         win_screen_active = False
                         board.load_level(LEVEL1_FILE, TRAJECTORY1_FILE)
