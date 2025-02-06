@@ -114,7 +114,6 @@ class Door(Base):
 class Monster(Base):
     def __init__(self, color, trajectory_file, columns):
         self.trajectory = self.load_trajectory(trajectory_file)
-        print(self.trajectory)
         self.current_point_index = 0
         self.next_point_index = 1
         self.speed = 5
@@ -592,6 +591,7 @@ class StartWindow:
                 for button in self.buttons:
                     button.draw(self.screen)
             pygame.display.flip()
+
 class DB():
     def __init__(self, main_screen):
         self.WIDTH = 500
@@ -600,31 +600,31 @@ class DB():
         self.modal.fill(GRAY)
         self.screen = main_screen
         self.font3 = pygame.font.Font(None, 24)
+
         try:
             self.conn = sqlite3.connect('gamer.db')
             self.cursor = self.conn.cursor()
         except sqlite3.Error as e:
             print(f"Ошибка подключения к базе данных: {e}")
             sys.exit()
-        self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS gamer (
-                id INTEGER PRIMARY KEY,
-                level_name INTEGER,
-                score INTEGER,
-                time INTEGER
-            )
-        ''')
+
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS gamer (
+            id INTEGER PRIMARY KEY,
+            level_name INTEGER,
+            score INTEGER,
+            time INTEGER
+        )''')
         self.conn.commit()
         self.cursor.execute("SELECT COUNT(*) FROM gamer")
         count = self.cursor.fetchone()[0]
         if count == 0:
             initial_data = [
                 (1, 1, None, None),
-                (2, 2, None, None),
-                (3, 3, None, None)
+                (2, 2, None, None),  # Убедитесь, что здесь нет 'lesson3'
             ]
             self.cursor.executemany("INSERT INTO gamer (id, level_name, score, time) VALUES (?, ?, ?, ?)", initial_data)
             self.conn.commit()
+
     def draw_text(self, text, font, color, x, y, align="left"):
         text_surface = font.render(text, True, color)
         text_rect = text_surface.get_rect()
@@ -636,6 +636,7 @@ class DB():
             text_rect.topright = (x, y)
         self.modal.blit(text_surface, text_rect)
         return text_rect
+
     def draw_table(self):
         header_y = 40
         row_height = 30
@@ -660,54 +661,42 @@ class DB():
             time_text = str(time) if time is not None else "---"
             self.draw_text(time_text, self.font3, BLACK, time_x + 20, y_pos + 6, align="center")
             y_pos += row_height
+
         pygame.draw.line(self.modal, BLACK, (level_x - 10, y_pos + 20), (time_x + 100, y_pos + 20), 1)
         self.draw_text("LEVEL SET TOTAL", self.font3, BLACK, level_x, y_pos)
+
+        # Подсчет и вывод общего счета
         self.cursor.execute("SELECT sum(score) FROM gamer WHERE score IS NOT NULL")
         total = self.cursor.fetchone()[0]
         if total is None:
             total = 0
         self.draw_text(str(total), self.font3, BLACK, score_x + 40, y_pos + 6, align="center")
+
+        # Добавление текста для закрытия таблицы
+        self.draw_text("To close the table, press the 'm' key", self.font3, BLACK, level_x, y_pos + 40)
+
         return lesson_rects
-    def handle_click(self, lesson_rects, mouse_pos): #added
-        for lesson_number, rect in lesson_rects.items(): #function to check the keys
-            if rect.collidepoint(mouse_pos): #if it is collide point
-                self.run_level(lesson_number)  #call to run functions
-                return #break
-    def run_level(self, level_number):  # Fix name functions to be object functions
-        level_running = True
-        while level_running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    level_running = False
-                    pygame.quit()
-                    sys.exit()
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        level_running = False
-                #Here what
-            self.screen.fill(WHITE) #put it inside
-            pygame.display.flip() #show display
-    def run(self, screen):
+
+    def run(self):
         running = True
         lesson_rects = {}
         while running:
-            self.screen.blit(self.modal, (100, 100))
-            lesson_rects = self.draw_table() #add to run code
+            self.modal.fill(GRAY)  # Заливаем модальное окно
+            lesson_rects = self.draw_table()  # Рисуем таблицу
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    running = False #False then quit display
+                    running = False
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    mouse_pos = pygame.mouse.get_pos() #get positions
-                    self.handle_click(lesson_rects, mouse_pos)
-            self.draw_table() #Draw to Modal window
-            screen.blit(self.modal, (100, 100))
+                    mouse_pos = pygame.mouse.get_pos()
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
+                    running = False  # Закрыть модальное окно при нажатии 'm'
+
+            self.screen.blit(self.modal, (100, 100))
             pygame.display.flip()
+
     def close(self):
         self.conn.close()
-        self.screen.fill(WHITE)
-        pygame.display.flip()
-    conn.close()
-    pygame.quit()
+
 class Level_button(pygame.sprite.Sprite):
     def __init__(self, level_image, center):
         super().__init__()
@@ -785,70 +774,81 @@ class Pause_button(Button):
         self.image = self.pressed_image if self.is_paused else self.nonpress_image
     def draw(self, screen):
         screen.blit(self.image, self.rect)
+
+
+# Основная функция игры
 def main():
     pygame.init()  # Инициализация Pygame
     screen = pygame.display.set_mode((1000, 850))  # Установите размер экрана
 
     # Определение переменных
-    level = 1
-    chips_left = 1
+    current_level = 1
+    chips_left = 5
     time_left = 100
     clock = pygame.time.Clock()
     start_window = StartWindow(screen)
     start_window.run()
     dataBase = DB(screen)  # Создаем экземпляр БД
+
     running = True
-    modal_active = False
     is_paused = False
     last_time = 0
     game_over = False
     level_complete = False
+    win_screen_active = False
     trajectory = TRAJECTORY1_FILE
     time_for_animation = pygame.time.get_ticks()  # Используем таймер Pygame
     image_normal = load_image('music_but.png', colorkey=-1)
     image_pressed = load_image('pressed_music_but.png', colorkey=-1)
     level_image = load_image('level_but.png', colorkey=-1)
+
     level_center = (50, 150)
     level_button = Level_button(level_image, level_center)
+
     button_center = (50, 50)
     music_button = Music_button(image_normal, image_pressed, button_center)
+
     all_sprites = pygame.sprite.Group(music_button, level_button)
     pygame.mixer.music.load("music.mp3")
+
     if not start_window.running:
         board = Board(BOARD_WIDTH, BOARD_HEIGHT)
         board.load_level(LEVEL1_FILE, trajectory)
         inventory = Inventory(7, 1)
         inventory.set_view(board.left + TILE_SIZE,
-                           board.top + board.cell_size * board.height + TILE_SIZE, TILE_SIZE)
+                           board.top + board.cell_size * board.height + TILE_SIZE,
+                           board.cell_size)
+
         pause_button = Pause_button('', PAUSE_BUTTON_X, PAUSE_BUTTON_Y, PAUSE_BUTTON_WIDTH, PAUSE_BUTTON_HEIGHT,
                                     GRAY, BLUE, nonpress_image=load_image('pause_.png', colorkey=-1),
                                     press_image=load_image('pressed_pause_.png', colorkey=-1))
-        music_button = Music_button(image_normal, image_pressed, button_center)
+
         is_music_playing = False
-        running = True
         while running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
+
                 mouse_pos = pygame.mouse.get_pos()
                 if pause_button.rect.collidepoint(mouse_pos) and pygame.mouse.get_pressed()[0]:
                     is_paused = not is_paused
                     pause_button.pause(is_paused)
-                mouse_pos = pygame.mouse.get_pos()
+
                 mouse_click = False
                 if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                     mouse_click = True
                     music_button.update(mouse_pos, mouse_click)
-                if mouse_click and music_button.is_pressed:
+
+                if music_button.is_pressed:
                     if is_music_playing:
+                        is_music_playing = True
+                        pygame.mixer.music.play(-1)
+                    else:
                         pygame.mixer.music.pause()
                         is_music_playing = False
-                    else:
-                        pygame.mixer.music.unpause()
-                        is_music_playing = True
-                elif mouse_click and not music_button.is_pressed and not is_music_playing:
-                    pygame.mixer.music.play(-1)  # Loop the music indefinetly
-                    is_music_playing = True
+                elif mouse_click and is_music_playing == False:
+                    pygame.mixer.music.play(-1)  # Повтор музыкального сопровождения
+
                 if event.type == pygame.KEYDOWN and not is_paused and not game_over and not level_complete:
                     dx = 0
                     dy = 0
@@ -866,18 +866,41 @@ def main():
                             tile.image = load_image('activated_portal.png', colorkey=-1)
                     if board.p1.is_collide(board.water):
                         game_over = True
-                    level_complete = board.check_portal_collision(chips_left, time_left, screen, inventory)
-                if event.type == pygame.KEYDOWN and game_over:
-                    if event.key == pygame.K_RETURN:
+                    if board.check_portal_collision(chips_left, time_left, screen, inventory):
+                        level_complete = True
+                        board.portal_active = True
+
+                if event.type == pygame.KEYDOWN:
+                    if game_over and event.key == pygame.K_RETURN:
                         game_over = False
-                        board.load_level(LEVEL1_FILE, TRAJECTORY1_FILE)
+                        board.load_level(LEVEL1_FILE, trajectory)
                         chips_left = 5
                         time_left = 100
+
                 if level_complete:
-                    level_complete = False
-                    board.load_level(LEVEL2_FILE, TRAJECTORY2_FILE)
-                    chips_left = 5
-                    time_left = 100
+                    if current_level == 2:
+                        win_screen_active = True
+                        level_complete = False
+                    else:
+                        level_complete = False
+                        current_level += 1
+                        if current_level == 2:
+                            board.load_level(LEVEL2_FILE, TRAJECTORY2_FILE)
+                        chips_left = 5
+                        time_left = 100
+
+                if win_screen_active and event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        current_level = 1
+                        chips_left = 5
+                        time_left = 100
+                        win_screen_active = False
+                        board.load_level(LEVEL1_FILE, TRAJECTORY1_FILE)
+
+                if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                    if level_button.rect.collidepoint(mouse_pos):
+                        dataBase.run()  # Запустить модальное окно БД
+
             if not is_paused and chips_left > 0 and not game_over and not level_complete:
                 current_time = time.time()
                 if last_time == 0:
@@ -891,33 +914,47 @@ def main():
                 board.move_monsters()
                 if board.check_monster_collision(board.monsters):
                     game_over = True
+
             screen.fill(BLACK)
-            draw_text(screen, "TIME:", 700, 740 - font_size, YELLOW)
-            draw_clock_face(screen, 790, 690, 70, 40, GREEN)
-            draw_digit(screen, time_left, 794, 700, LIGHT_YELLOW)
-            draw_text(screen, "LEVEL:", 90, 780, YELLOW)
-            draw_clock_face(screen, 275, 775, 70, 40, GREEN)
-            draw_digit(screen, level, 282, 782, LIGHT_YELLOW)
-            draw_text(screen, "STARS LEFT:", 90, 740 - font_size, YELLOW)
-            draw_clock_face(screen, 275, 690, 70, 40, GREEN)
-            draw_digit(screen, chips_left, 280, 700, LIGHT_YELLOW)
-            pause_button.draw(screen)
-            board.draw_level(screen)
-            inventory.render(screen)
-            if time_for_animation < current_time:
-                board.player.update()
-                board.monsters.update()
-                time_for_animation = current_time + 0.1
-                board.water.update()
-            if game_over:
-                die_image = load_image("die_window_.png")  # Assuming image file is called "character.png"
-                die_rect = die_image.get_rect()
-                die_rect.topleft = (325, 107)
-                inventory.items = []
-                screen.blit(die_image, die_rect)
-            clock.tick(30)
-            all_sprites.draw(screen)
+
+            if win_screen_active:
+                win_image = load_image("win.png")
+                win_rect = win_image.get_rect(center=screen.get_rect().center)
+                screen.blit(win_image, win_rect)
+            else:
+                draw_text(screen, "TIME:", 700, 740 - font_size, YELLOW)
+                draw_clock_face(screen, 790, 690, 70, 40, GREEN)
+                draw_digit(screen, time_left, 794, 700, LIGHT_YELLOW)
+                draw_text(screen, "LEVEL:", 90, 780, YELLOW)
+                draw_clock_face(screen, 275, 775, 70, 40, GREEN)
+                draw_digit(screen, current_level, 282, 782, LIGHT_YELLOW)
+                draw_text(screen, "STARS LEFT:", 90, 740 - font_size, YELLOW)
+                draw_clock_face(screen, 275, 690, 70, 40, GREEN)
+                draw_digit(screen, chips_left, 280, 700, LIGHT_YELLOW)
+                pause_button.draw(screen)
+                board.draw_level(screen)
+                inventory.render(screen)
+
+                if time_for_animation < current_time:
+                    board.player.update()
+                    board.monsters.update()
+                    time_for_animation = current_time + 0.1
+                    board.water.update()
+
+                if game_over:
+                    die_image = load_image("die_window_.png")
+                    die_rect = die_image.get_rect()
+                    die_rect.topleft = (325, 107)
+                    inventory.items = []
+                    screen.blit(die_image, die_rect)
+
+                clock.tick(30)
+                all_sprites.draw(screen)
+
             pygame.display.flip()
+
     pygame.quit()
+
+
 if __name__ == '__main__':
     main()
