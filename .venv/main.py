@@ -637,7 +637,7 @@ class StartWindow:
 class DB():
     def __init__(self, main_screen):
         self.WIDTH = 500
-        self.HEIGHT = 250
+        self.HEIGHT = 550
         self.modal = pygame.Surface((self.WIDTH, self.HEIGHT))
         self.modal.fill(GRAY)
         self.screen = main_screen
@@ -662,9 +662,9 @@ class DB():
         if count == 0:
             initial_data = [
                 (1, 1, None, None),
-                (2, 2, None, None),  # Убедитесь, что здесь нет 'lesson3'
+                (2, 2, None, None),
             ]
-            self.cursor.executemany("INSERT INTO gamer (id, level_name, score, time) VALUES (?, ?, ?, ?)", initial_data)
+            # self.cursor.executemany("INSERT INTO gamer (id, level_name, score, time) VALUES (?, ?, ?, ?)", initial_data)
             self.conn.commit()
 
     def draw_text(self, text, font, color, x, y, align="left"):
@@ -802,26 +802,9 @@ def draw_clock_face(screen, x, y, width, height, color):
     pygame.draw.rect(screen, color, (x, y, width, height))
 
 
-class Music_button(pygame.sprite.Sprite):
-    def __init__(self, image_normal, image_pressed, center):
-        super().__init__()
-        self.image_normal = image_normal
-        self.image_pressed = image_pressed
-        self.image = self.image_normal
-        self.rect = self.image.get_rect(center=center)
-        self.is_pressed = False
-
-    def update(self, mouse_pos, mouse_click):
-        if self.rect.collidepoint(mouse_pos):
-            if mouse_click:
-                self.is_pressed = not self.is_pressed
-                if self.is_pressed:
-                    self.image = self.image_pressed
-                else:
-                    self.image = self.image_normal
-
-    def draw(self, surface):
-        surface.blit(self.image, self.rect)
+class Music():
+    pygame.mixer.music.load("music.mp3")
+    pygame.mixer.music.play(-1)
 
 
 class Pause_button(Button):
@@ -861,18 +844,12 @@ def main():
     win_screen_active = False
     trajectory = TRAJECTORY1_FILE
     time_for_animation = pygame.time.get_ticks()  # Используем таймер Pygame
-    image_normal = load_image('music_but.png', colorkey=-1)
-    image_pressed = load_image('pressed_music_but.png', colorkey=-1)
     level_image = load_image('level_but.png', colorkey=-1)
 
-    level_center = (50, 150)
+    level_center = (50, 50)
     level_button = Level_button(level_image, level_center)
 
-    button_center = (50, 50)
-    music_button = Music_button(image_normal, image_pressed, button_center)
-
-    all_sprites = pygame.sprite.Group(music_button, level_button)
-    pygame.mixer.music.load("music.mp3")
+    all_sprites = pygame.sprite.Group(level_button)
 
     if not start_window.running:
         board = Board(BOARD_WIDTH, BOARD_HEIGHT)
@@ -886,7 +863,6 @@ def main():
                                     nonpress_image=load_image('pause_.png', colorkey=-1),
                                     press_image=load_image('pressed_pause_.png', colorkey=-1))
 
-        is_music_playing = False
         while running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -896,21 +872,6 @@ def main():
                 if pause_button.rect.collidepoint(mouse_pos) and pygame.mouse.get_pressed()[0]:
                     is_paused = not is_paused
                     pause_button.pause(is_paused)
-
-                mouse_click = False
-                if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-                    mouse_click = True
-                    music_button.update(mouse_pos, mouse_click)
-
-                if music_button.is_pressed:
-                    if is_music_playing:
-                        is_music_playing = True
-                        pygame.mixer.music.play(-1)
-                    else:
-                        pygame.mixer.music.pause()
-                        is_music_playing = False
-                elif mouse_click and is_music_playing == False:
-                    pygame.mixer.music.play(-1)  # Повтор музыкального сопровождения
 
                 if event.type == pygame.KEYDOWN and not is_paused and not game_over and not level_complete:
                     dx = 0
@@ -941,6 +902,22 @@ def main():
                         time_left = 100
 
                 if level_complete:
+                    total_score = 1000 + time_left * 10
+                    try:
+                        sqlite_connection = sqlite3.connect('gamer.db')
+                        cursor = sqlite_connection.cursor()
+
+                        cursor.execute("INSERT INTO gamer(time, score, level_name) VALUES(?, ?, ?)",
+                                       (time_left, total_score, current_level))
+                        sqlite_connection.commit()  # Обязательно коммитим изменения
+                        cursor.close()
+
+                    except sqlite3.Error as error:
+                        print("Ошибка при работе с SQLite", error)
+                    finally:
+                        if sqlite_connection:
+                            sqlite_connection.close()
+
                     if current_level == 2:
                         win_screen_active = True
                         level_complete = False
